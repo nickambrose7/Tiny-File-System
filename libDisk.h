@@ -4,6 +4,7 @@
 
 // Global variables
 extern int diskCounter;
+extern Disk *diskListHead;
 
 // Function prototypes
 
@@ -14,9 +15,11 @@ int writeBlock(int disk, int bNum, void *block);
 
 // Struct to hold the disk information
 typedef struct {
-    int disk;
-    int nBytes;
+    int disk; // unique disk identifier
+    int nBytes; // Size of the disk in bytes
+    char *filename; // Name of the backing file for our disk
     int offset; // Offset in blocks
+    Disk *next; // Pointer to the next disk in the list
 } Disk;
 
 #endif

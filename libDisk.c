@@ -2,6 +2,8 @@
 
 int diskCounter = 0; // global to keep track of number of disks opened
 
+Disk *diskListHead = NULL; // global to keep track of list of disks
+
 
 int openDisk(char *filename, int nBytes) {
     /* This functions opens a regular UNIX file and designates the first
@@ -15,25 +17,52 @@ content must not be overwritten in this function. There is no requirement
 to maintain integrity of any file content beyond nBytes. The return value
 is negative on failure or a disk number on success. */
     if (nBytes == 0) {
-        // open existing disk
+        // open existing disk, can't overwirte content
+        // check if disk already exists
+        Disk *currentDisk = diskListHead;
+        while (currentDisk != NULL) {
+            if (strcmp(currentDisk->filename, filename) == 0) {
+                // disk already exists
+                return currentDisk->diskNumber;
+            }
+            currentDisk = currentDisk->next;
+        }
+        // disk doesn't exist
+        printf("LIBDISK: Error: Disk doesn't exist\n");
+        return -1;
 
     } else {
         // create new disk
         if (nBytes < BLOCKSIZE) {
+            printf("LIBDISK: Error: nBytes must be at least BLOCKSIZE\n");
             return -1;
         }
         if (nBytes % BLOCKSIZE != 0) {
             nBytes = nBytes - (nBytes % BLOCKSIZE);
         }
         // create file
-        FILE *fp = fopen(filename, "w");
+        FILE *fp = fopen(filename, "w"); // will truncate file to 0 if it exists
         if (fp == NULL) {
-            perror("Error opening file");
+            perror("LIBDISK: Error opening file");
             return -1;
         }
         // write nBytes of 0s to file
+        char zero = 0;
+        for (int i = 0; i < nBytes; i++) {
+            fwrite(&zero, sizeof(char), 1, fp);
+        }
         // add disk to disk list
-
+        Disk *newDisk = malloc(sizeof(Disk));
+        if (newDisk == NULL) {
+            perror("LIBDISK: Error allocating memory for new disk");
+            return -1;
+        }
+        newDisk->diskNumber = diskCounter++;
+        newDisk->filename = filename;
+        newDisk->nBytes = nBytes;
+        newDisk->next = diskListHead;
+        diskListHead = newDisk;
+        return newDisk->diskNumber;
     }
 
 }
