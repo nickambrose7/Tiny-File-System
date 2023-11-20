@@ -35,39 +35,39 @@ int main()
         { 
             printf("] Open failed with (%i). Disk probably does not exist.\n",disks[index]);
             
-	    disks[index] = openDisk(diskName,BLOCKSIZE * NUM_BLOCKS); /* create the disk */
-	    if (disks[index] < 0)
+	        disks[index] = openDisk(diskName,BLOCKSIZE * NUM_BLOCKS); /* create the disk */
+	        if (disks[index] < 0)
             {
                 printf("] openDisk() failed to create a disk. This should never happen. Exiting. \n");
-		exit(0); 
-	    }
+		        exit(0); 
+	        }
           
             memset(buffer,'$',BLOCKSIZE);
             for (index2 = 0; index2 < NUM_TEST_BLOCKS; index2++)
             {
                 retValue = writeBlock(disks[index],testBlocks[index2],buffer);
                 if (retValue < 0)
-		{
-		    printf("] Failed to write to block %i of disk %s. Exiting (%i).\n",testBlocks[index2],diskName,retValue);
-		    exit(0);
-		}
+		        {
+		            printf("] Failed to write to block %i of disk %s. Exiting (%i).\n",testBlocks[index2],diskName,retValue);
+		            exit(0);
+		        }
                 printf("] Successfully wrote to block %i of disk %s.\n",testBlocks[index2],diskName);
             }
         }
         else
         {
-	    printf("] Existing disk %s opened.\n",diskName);
-	    /* determine if the testBlocks contain the dollar Signal. 
- * Check every single byte */
+	        printf("] Existing disk %s opened.\n",diskName);
+	        /* determine if the testBlocks contain the dollar Signal. 
+            * Check every single byte */
             for (index2 = 0; index2 < NUM_TEST_BLOCKS; index2++)
             {
-		if (readBlock(disks[index],testBlocks[index2],buffer) < 0)
+		        if (readBlock(disks[index],testBlocks[index2],buffer) < 0)
                 {
                     printf("] Failed to read block %i of disk %s. Exiting.\n",testBlocks[index2],diskName);
                     exit(0);
                 }
 
-		for (index3 =0; index3 < BLOCKSIZE; index3++)
+		        for (index3 =0; index3 < BLOCKSIZE; index3++)
                 {
                     if (buffer[index3] != '$')
                     {
@@ -78,8 +78,7 @@ int main()
                 }
             }
             printf("] Previous writes were varified. Now, delete the .dsk files if you want to run this test again.\n");
-       } 
+        } 
     }
     return 0;
 }
-
