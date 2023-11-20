@@ -68,9 +68,8 @@ is negative on failure or a disk number on success. */
 }
 
 int closeDisk(int disk) {
-    /* This function closes the open disk (identified by ‘disk’). All
-memory-mapped information is flushed to the disk file. The function
-returns -1 if disk is not open, and 0 on success. */
+    /* This function closes the open disk (identified by ‘disk’).
+    Remove the disk from the disk list and delete the file  */
 
 }
 
@@ -86,7 +85,42 @@ disk, bNum=n is n*BLOCKSIZE bytes into the disk. On success, it returns
 0. -1 or smaller is returned if disk is not available (hasn’t been
 opened) or any other failures. You must define your own error code
 system. */
-
+    Disk *currentDisk = diskListHead;
+    while (currentDisk != NULL) {
+        if (currentDisk->diskNumber == disk) {
+            // found disk
+            if (bNum < 0 || (bNum > currentDisk->nBytes / BLOCKSIZE) {
+                printf("LIBDISK: Error: bNum out of range\n");
+                return -1;
+            }
+            // open file
+            FILE *fp = fopen(currentDisk->filename, "r");
+            if (fp == NULL) {
+                perror("LIBDISK: Error opening file");
+                return -1;
+            }
+            // seek to correct position
+            if (fseek(fp, bNum * BLOCKSIZE, SEEK_SET) != 0) {
+                perror("LIBDISK: Error seeking to position");
+                return -1;
+            }
+            // read block
+            if (fread(block, sizeof(char), BLOCKSIZE, fp) != BLOCKSIZE) {
+                perror("LIBDISK: Error reading block");
+                return -1;
+            }
+            // close file
+            if (fclose(fp) != 0) {
+                perror("LIBDISK: Error closing file");
+                return -1;
+            }
+            return 0;
+        }
+        currentDisk = currentDisk->next;
+    }
+    // disk not found
+    printf("LIBDISK: Error: Disk not found\n");
+    return -1;
 }
 
 int writeBlock(int disk, int bNum, void *block) {
@@ -97,6 +131,42 @@ must translate the logical block bNum to the correct byte position in
 the file. On success, it returns 0. -1 or smaller is returned if disk
 is not available (i.e. hasn’t been opened) or any other failures. You
 must define your own error code system. */
+    Disk *currentDisk = diskListHead;
+    while (currentDisk != NULL) {
+        if (currentDisk->diskNumber == disk) {
+            // found disk
+            if (bNum < 0 || (bNum > currentDisk->nBytes / BLOCKSIZE) {
+                printf("LIBDISK: Error: bNum out of range\n");
+                return -1;
+            }
+            // open file
+            FILE *fp = fopen(currentDisk->filename, "r+");
+            if (fp == NULL) {
+                perror("LIBDISK: Error opening file");
+                return -1;
+            }
+            // seek to correct position
+            if (fseek(fp, bNum * BLOCKSIZE, SEEK_SET) != 0) {
+                perror("LIBDISK: Error seeking to position");
+                return -1;
+            }
+            // write block
+            if (fwrite(block, sizeof(char), BLOCKSIZE, fp) != BLOCKSIZE) {
+                perror("LIBDISK: Error writing block");
+                return -1;
+            }
+            // close file
+            if (fclose(fp) != 0) {
+                perror("LIBDISK: Error closing file");
+                return -1;
+            }
+            return 0;
+        }
+        currentDisk = currentDisk->next;
+    }
+    // disk not found
+    printf("LIBDISK: Error: Disk not found\n");
+    return -1;
 
 }
 
