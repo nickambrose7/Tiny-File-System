@@ -10,7 +10,6 @@ struct Disk {
     int diskNumber;    // unique disk identifier
     int nBytes;        // Size of the disk in bytes
     char *filename;    // Name of the backing file for our disk
-    int offset;        // Offset in blocks
     Disk *next;        // Pointer to the next disk in the list
     FILE *filePointer; // file pointer to the unix file
 };

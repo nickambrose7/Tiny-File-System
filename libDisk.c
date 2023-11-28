@@ -21,19 +21,40 @@ to maintain integrity of any file content beyond nBytes. The return value
 is negative on failure or a disk number on success. */
     if (nBytes == 0) {
         // open existing disk, can't overwirte content
-        // check if disk already exists
-        Disk *currentDisk = diskListHead;
-        while (currentDisk != NULL) {
-            if (strcmp(currentDisk->filename, filename) == 0) {
-                // disk already exists
-                return currentDisk->diskNumber;
-            }
-            currentDisk = currentDisk->next;
+        // File should already exist, open it
+        FILE *fp = fopen(filename, "r+");
+        if (fp == NULL) {
+            perror("LIBDISK: File did not exist, it should have!");
+            return -1;
         }
-        // disk doesn't exist
-        printf("LIBDISK: Error: Disk doesn't exist\n");
-        return -1;
-
+        // get file size
+        fseek(fp, 0, SEEK_END);
+        int fileSize = ftell(fp);
+        if (fileSize % BLOCKSIZE != 0) {
+            perror("LIBDISK: File size is not a multiple of BLOCKSIZE");
+            return -1;
+        }
+        // return position to the beginning
+        fseek(fp, 0, SEEK_SET);
+        // add disk to disk list
+        Disk *newDisk = malloc(sizeof(Disk));
+        if (newDisk == NULL) {
+            perror("LIBDISK: Error allocating memory for new disk");
+            return -1;
+        }
+        newDisk->diskNumber = diskCounter++;
+        char *filenameCopy = malloc(strlen(filename) + 1);
+        if (filenameCopy == NULL) {
+            perror("LIBDISK: Error allocating memory for filename");
+            return -1;
+        }
+        strcpy(filenameCopy, filename);
+        newDisk->filename = filenameCopy;
+        newDisk->nBytes = fileSize;
+        newDisk->next = diskListHead;
+        newDisk->filePointer = fp;
+        diskListHead = newDisk;
+        return newDisk->diskNumber;
     } else {
         // create new disk
         if (nBytes < BLOCKSIZE) {
