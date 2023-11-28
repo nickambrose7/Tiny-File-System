@@ -61,7 +61,13 @@ is negative on failure or a disk number on success. */
             return -1;
         }
         newDisk->diskNumber = diskCounter++;
-        newDisk->filename = filename;
+        char *filenameCopy = malloc(strlen(filename) + 1);
+        if (filenameCopy == NULL) {
+            perror("LIBDISK: Error allocating memory for filename");
+            return -1;
+        }
+        strcpy(filenameCopy, filename);
+        newDisk->filename = filenameCopy;
         newDisk->nBytes = nBytes;
         newDisk->next = diskListHead;
         newDisk->filePointer = fp;
