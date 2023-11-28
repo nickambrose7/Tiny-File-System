@@ -1,4 +1,7 @@
+#include "libDisk.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 int diskCounter = 0; // global to keep track of number of disks opened
 
@@ -61,6 +64,7 @@ is negative on failure or a disk number on success. */
         newDisk->filename = filename;
         newDisk->nBytes = nBytes;
         newDisk->next = diskListHead;
+        newDisk->filePointer = fp;
         diskListHead = newDisk;
         return newDisk->diskNumber;
     }
@@ -70,7 +74,34 @@ is negative on failure or a disk number on success. */
 int closeDisk(int disk) {
     /* This function closes the open disk (identified by ‘disk’).
     Remove the disk from the disk list and delete the file  */
-
+    // close the unix file and free memory we allocated
+    Disk *currentDisk = diskListHead;
+    Disk *previousDisk = NULL;
+    while (currentDisk != NULL) {
+        if (currentDisk->diskNumber == disk) {
+            // found disk
+            // close file
+            if (fclose(currentDisk->filePointer) != 0) {
+                perror("LIBDISK: Error closing file");
+                return -1;
+            }
+            // remove disk from disk list
+            if (previousDisk == NULL) { // disk is head of list
+                // disk is head of list
+                diskListHead = currentDisk->next;
+            } else { // disk is not head of list
+                previousDisk->next = currentDisk->next;
+            }
+            // free memory
+            free(currentDisk);
+            return 0; // success
+        }
+        previousDisk = currentDisk;
+        currentDisk = currentDisk->next;
+    }
+    // disk not found
+    printf("LIBDISK: Error: Disk not found\n");
+    return -1;
 }
 
 
@@ -89,17 +120,13 @@ system. */
     while (currentDisk != NULL) {
         if (currentDisk->diskNumber == disk) {
             // found disk
-            if (bNum < 0 || (bNum > currentDisk->nBytes / BLOCKSIZE) {
+            if (bNum < 0 || (bNum > currentDisk->nBytes / BLOCKSIZE)) {
                 printf("LIBDISK: Error: bNum out of range\n");
                 return -1;
             }
             // open file
-            FILE *fp = fopen(currentDisk->filename, "r");
-            if (fp == NULL) {
-                perror("LIBDISK: Error opening file");
-                return -1;
-            }
-            // seek to correct position
+            FILE *fp = currentDisk->filePointer;
+            // seek to correct position, use SEEK_SET to seek from beginning of file
             if (fseek(fp, bNum * BLOCKSIZE, SEEK_SET) != 0) {
                 perror("LIBDISK: Error seeking to position");
                 return -1;
@@ -107,11 +134,6 @@ system. */
             // read block
             if (fread(block, sizeof(char), BLOCKSIZE, fp) != BLOCKSIZE) {
                 perror("LIBDISK: Error reading block");
-                return -1;
-            }
-            // close file
-            if (fclose(fp) != 0) {
-                perror("LIBDISK: Error closing file");
                 return -1;
             }
             return 0;
@@ -135,16 +157,12 @@ must define your own error code system. */
     while (currentDisk != NULL) {
         if (currentDisk->diskNumber == disk) {
             // found disk
-            if (bNum < 0 || (bNum > currentDisk->nBytes / BLOCKSIZE) {
+            if (bNum < 0 || (bNum > currentDisk->nBytes / BLOCKSIZE)) {
                 printf("LIBDISK: Error: bNum out of range\n");
                 return -1;
             }
             // open file
-            FILE *fp = fopen(currentDisk->filename, "r+");
-            if (fp == NULL) {
-                perror("LIBDISK: Error opening file");
-                return -1;
-            }
+            FILE *fp = currentDisk->filePointer;
             // seek to correct position
             if (fseek(fp, bNum * BLOCKSIZE, SEEK_SET) != 0) {
                 perror("LIBDISK: Error seeking to position");
@@ -155,11 +173,6 @@ must define your own error code system. */
                 perror("LIBDISK: Error writing block");
                 return -1;
             }
-            // close file
-            if (fclose(fp) != 0) {
-                perror("LIBDISK: Error closing file");
-                return -1;
-            }
             return 0;
         }
         currentDisk = currentDisk->next;
@@ -167,6 +180,5 @@ must define your own error code system. */
     // disk not found
     printf("LIBDISK: Error: Disk not found\n");
     return -1;
-
 }
 
