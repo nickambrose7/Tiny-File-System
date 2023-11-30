@@ -45,6 +45,19 @@ int tfs_seek(fileDescriptor FD, int offset);
 /* change the file pointer location to offset (absolute). Returns
 success/error codes.*/
 
+// EXTRA CREDIT FUNCTIONS:
+
+int tfs_rename(fileDescriptor FD, char* newName); /* renames a
+file. New name should be passed in. File has to be open. */
+
+int tfs_readdir() /* lists all the files and directories on the disk, print the
+list to stdout -- Note: if you don’t have hierarchical directories, this just reads
+the root directory aka “all files” */
+
+tfs_readFileInfo(fileDescriptor FD) /* returns the file’s
+creation time or all info (up to you if you want to make 
+multiple functions) */
+
 /* The default size of the disk and file system block */
 #define BLOCKSIZE 256
 
