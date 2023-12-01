@@ -19,29 +19,38 @@ int tfs_mkfs(char *filename, int nBytes){
 int tfs_mount(char *diskname){
     // check if there is already a disk mounted...only one disk can be mounted at a time
     if(mountedDisk != NULL) {
-        perror("LIBTINYFS: A disk is already mounted, unmount current\ndisk to mount a new disk");
-        return -1
+        perror("LIBTINYFS: Error: A disk is already mounted, unmount current\ndisk to mount a new disk");
+        return -1 // error 
     }
     // check if successfully retrieved the disk number
     int diskNum = openDisk(diskname, 0);
     if (diskNum == -1) {
-        perror("LIBTINYFS: See LIBDISK error.");
-        return -1;
+        perror("LIBTINYFS: Error: See LIBDISK error.");
+        return -1; // error 
     }
-    int magicNumber = readBlock(diskNum, 0, );
-    if (magicNumber != MAGIC_NUMBER) {
-        perror("LIBTINYFS: Invalid magic number")
+    // check the file system type
+    // make a block sized buffer
+    char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
+    // read the super block
+    int readSuccess = readBlock(diskNum, 0, data);
+    // successful read? correct FS type?
+    if (readSuccess != 1 || data[2] != MAGIC_NUMBER) {
+        perror("LIBTINYFS: Error: Invalid magic number") // error
     }
-    return diskNum;
+    //deallocate buffer
+    free(data);
+    return diskNum; // success
 }
 
 int tfs_unmount(void){
+    // is there a disk mount?
     if (mountedDisk == NULL) {
         perror("LIBTINYFS: No mounted disk");
-        return -1;
+        return -1; // error
     }
+    // unmount the currently mounted disk
     mountedDisk = NULL;
-    return 1;
+    return 1; // success
 }
 
 fileDescriptor tfs_openFile(char *name){
