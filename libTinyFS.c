@@ -13,6 +13,29 @@ openFileTableEntry *openFileTable; // array of open file table entries, indexed 
 Disk mountedDisk = NULL; // currently mounted Disk
 
 int tfs_mkfs(char *filename, int nBytes){
+    int diskNum = openDisk(filename, nBytes);
+    if (diskNum < 0) {
+        perror("LIBTINYFS: error creating disk in tfs_mkfs");
+        return -1; // error 
+    }
+    // format the disk so that it is ready to be mounted
+    // initialize the super block
+    // init the correct number of inodes
+    // Free block list implementation?
+    /*
+    - Initialize the superblock's free block pointer to point to the first free block
+    (which will be the first block after the superblock and inode blocks).
+    - Init each consecutive free blocks pointer to point to the next free block.
+    (the one right next to it)
+    - Pointers in this case are just block numbers, not addresses.
+    - The last free block's pointer should be set to 0. This is the tail of the list.
+    - To get a free block, read the free block pointer, then update the superblock's
+    free block pointer to point to the next free block.
+    - To add a free block, set the free block pointer of the block you want to add to
+    point to the current free block pointer, then update the superblock's free block
+    pointer to point to the block you just added. So the superblock's free block pointer
+    essentiall acts as the dummy head of the free block list.
+    */
 
 }
 
@@ -33,7 +56,8 @@ int tfs_mount(char *diskname){
     char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
     // read the super block
     int readSuccess = readBlock(diskNum, 0, data);
-    // successful read? correct FS type?
+    // successful read? correct FS type? 
+    // ---NICK: Check the magic number in a loop, it should be on every block.
     if (readSuccess != 1 || data[2] != MAGIC_NUMBER) {
         perror("LIBTINYFS: Error: Invalid magic number") // error
     }
