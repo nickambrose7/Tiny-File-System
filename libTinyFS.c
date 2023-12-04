@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-int MAGIC_NUMBER = 44; // Magic number for TinyFS
 
 fileDescriptor currentfd = 0; // incremented each time we create a new file
 
@@ -18,11 +17,71 @@ int tfs_mkfs(char *filename, int nBytes){
         perror("LIBTINYFS: error creating disk in tfs_mkfs");
         return -1; // error 
     }
-    // format the disk so that it is ready to be mounted
-    // initialize the super block
-    // init the correct number of inodes
-    // Free block list implementation?
-    /*
+
+    /*IMPORTANT: STRUCTURE OF OUR SUPER BLOCK BELOW: */
+    char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
+    data[0] = 1; // block type -> super block
+    data[1] = MAGIC_NUMBER;
+    int numInodes = ((nBytes / BLOCKSIZE) - 1) / 2;  // calculate the number of inodes needed
+    data[2] = 1; // free inode list head
+    data[4] = 1 + numInodes; // free block list head
+    // write the super block to the disk
+    int writeSuccess = writeBlock(diskNum, 0, data);
+    if (writeSuccess < 0) {
+        perror("LIBTINYFS: Error writing super block to disk");
+        return -1; // error
+    }
+    /* INODE INITIALIZATION: */
+    for (int i = 1; i < numInodes + 1; i++) {
+        // setup each inode block
+        char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
+        data[0] = 2; // block type -> inode block
+        data[1] = MAGIC_NUMBER;
+        // set up linked list for free inode list
+        if (i < numInodes) {
+            data[2] = i + 1; // next free inode
+        } else {
+            data[2] = 0; // no more free inodes, 0 means end of list
+        }
+        // set up inode
+        data[4] = 0; // file size
+        // data[5] -> pointer to the first data block -- fill in later
+        // data[6] -> file name -- fill in later
+        int writeSuccess = writeBlock(diskNum, i, data);
+        if (writeSuccess < 0) {
+            // print out the block number that failed to write
+            printf("LIBTINYFS: Error writing inode block %d to disk", i);
+            return -1; // error
+        }
+    }
+    // Free block list implementation
+    int freeBlockListHead = 1 + numInodes; // the first free block is the first block after the inode blocks
+    for (int i = freeBlockListHead; i < nBytes / BLOCKSIZE; i++) {
+        // setup each free block
+        char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
+        data[0] = 4; // block type -> free block
+        data[1] = MAGIC_NUMBER;
+        // set up linked list for free block list
+        if (i < nBytes / BLOCKSIZE - 1) {
+            data[2] = i + 1; // next free block
+        } else {
+            data[2] = 0; // no more free blocks, 0 means end of list
+        }
+        int writeSuccess = writeBlock(diskNum, i, data);
+        if (writeSuccess < 0) {
+            // print out the block number that failed to write
+            printf("LIBTINYFS: Error writing free block %d to disk", i);
+            return -1; // error
+        }
+    }
+    return 1; // success
+    /* FUNCTION DONE*/
+
+    /* BELOW IS INFO ABOUT HOW WE WILL MANIPULATE OUR LINKED LISTS
+       REMEMBER WE HAVE ONE LINKED LIST TO KEEP TRACK OF OUR FREE INODES
+       ONE TO KEEP TRACK OF OUR FREE DATA BLOCKS
+       AND ONE TO KEEP TRACK OF OUR DATA BLOCKS THAT ARE IN USE (FOR EACH FILE)
+
     - Initialize the superblock's free block pointer to point to the first free block
     (which will be the first block after the superblock and inode blocks).
     - Init each consecutive free blocks pointer to point to the next free block.
@@ -36,7 +95,6 @@ int tfs_mkfs(char *filename, int nBytes){
     pointer to point to the block you just added. So the superblock's free block pointer
     essentiall acts as the dummy head of the free block list.
     */
-
 }
 
 int tfs_mount(char *diskname){

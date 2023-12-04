@@ -69,6 +69,8 @@ possible values */
 /* use this name for a default emulated disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk”
 
+#define MAGIC_NUMBER = 0x44;
+
 /* use as a special type to keep track of files */
 typedef int fileDescriptor;
 
