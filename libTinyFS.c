@@ -13,19 +13,21 @@ openFileTableEntry *openFileTable; // array of open file table entries, indexed 
 Disk mountedDisk = NULL; // currently mounted Disk
 
 int tfs_mkfs(char *filename, int nBytes){
+    
+    // return 1 or new disk number?
 
 }
 
 int tfs_mount(char *diskname){
     // check if there is already a disk mounted...only one disk can be mounted at a time
-    if(mountedDisk != NULL) {
+    if(mountedDisk != NULL) { // do you want to automatically unmount the currently mounted disk or nah?
         perror("LIBTINYFS: Error: A disk is already mounted, unmount current\ndisk to mount a new disk");
         return -1 // error 
     }
     // check if successfully retrieved the disk number
     int diskNum = openDisk(diskname, 0);
     if (diskNum == -1) {
-        perror("LIBTINYFS: Error: See LIBDISK error.");
+        perror("LIBTINYFS: Error: Could not open disk");
         return -1; // error 
     }
     // check the file system type
@@ -45,12 +47,12 @@ int tfs_mount(char *diskname){
 int tfs_unmount(void){
     // is there a disk mount?
     if (mountedDisk == NULL) {
-        perror("LIBTINYFS: No mounted disk");
+        perror("LIBTINYFS: No disk to unmount");
         return -1; // error
     }
     // unmount the currently mounted disk
     mountedDisk = NULL;
-    return 1; // success
+    return 1; // success, do you want to return unmounted disk num instead?
 }
 
 fileDescriptor tfs_openFile(char *name){
