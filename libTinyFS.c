@@ -12,6 +12,30 @@ openFileTableEntry *openFileTable; // array of open file table entries, indexed 
 Disk mountedDisk = NULL; // currently mounted Disk
 
 int tfs_mkfs(char *filename, int nBytes){
+    /******************** BLOCK STRUCTURE DOCUMENTATION ****************************/
+    /* 
+    * BLOCKSIZE = 256 bytes
+    * The documentation below assumes you are starting at position 0 in each block:
+
+
+    ***SUPER BLOCK***
+    | block number = 1 | MAGIC_NUMBER | free block LL head pointer | Root inode LL head pointer | 
+    | 1 byte           | 1 byte       | 4 bytes                    | 4 bytes                    |
+    
+    ***FREE BLOCKS***
+    | block number = 4 | MAGIC_NUMBER | next free block pointer    |
+    | 1 byte           | 1 byte       | 4 bytes                    |
+    
+    ***INODE BLOCKS***
+    | block number = 2 | MAGIC_NUMBER | next inode pointer    | file size | data block pointer | file name | time stamp |
+    | 1 byte           | 1 byte       | 4 bytes               | 4 bytes   | 4 bytes            | 9 bytes   | 25 bytes   |
+    
+    ***DATA BLOCKS***
+    | block number = 3 | MAGIC_NUMBER | pointer to next data block | data            |
+    | 1 byte           | 1 byte       | 4 bytes                    |  250 bytes max  |
+    
+    */
+    
     int diskNum = openDisk(filename, nBytes);
     if (diskNum < 0) {
         perror("LIBTINYFS: error creating disk in tfs_mkfs");
@@ -19,7 +43,7 @@ int tfs_mkfs(char *filename, int nBytes){
     }
 
     /*IMPORTANT: STRUCTURE OF OUR SUPER BLOCK BELOW: */
-    char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
+    char *data = (char *)malloc(BLOCKSIZE);
     data[0] = 1; // block type -> super block
     data[1] = MAGIC_NUMBER;
     int numInodes = ((nBytes / BLOCKSIZE) - 1) / 2;  // calculate the number of inodes needed
@@ -136,6 +160,8 @@ int tfs_unmount(void){
 }
 
 fileDescriptor tfs_openFile(char *name){
+    // search our inode list for that file name. 
+    // if not in our list, allocate a new inode for the file
 
 }
 int tfs_closeFile(fileDescriptor FD){
