@@ -10,7 +10,7 @@ fileDescriptor currentfd = 0; // incremented each time we create a new file
 
 openFileTableEntry *openFileTable; // array of open file table entries, indexed by file descriptor
 
-Disk mountedDisk = NULL; // currently mounted Disk
+Disk* mountedDisk = NULL; // currently mounted Disk
 
 int tfs_mkfs(char *filename, int nBytes){
     /******************** BLOCK STRUCTURE DOCUMENTATION ****************************/
@@ -40,12 +40,12 @@ int tfs_mkfs(char *filename, int nBytes){
     */
 
     int numBlocks = (nBytes / BLOCKSIZE) - 1; 
-    if (numbBlocks < 3) {
+    if (numBlocks < 3) {
         perror("LIBTINYFS: Error: File system size too small");
         return -1; // error
     }
     // check nbytes is in range
-    if (nBytes < 0 || nBytes > 2^31 - 1) {
+    if (nBytes < 0 || nBytes > MAX_BYTES) {
         perror("LIBTINYFS: Error: File system size out of range");
         return -1; // error
     }
@@ -71,14 +71,14 @@ int tfs_mkfs(char *filename, int nBytes){
     free(data); // deallocate the data buffer
 
     /* FREEBLOCK INITIALIZATION: */
-    for (int i = 1; i <= numblocks; i++) {
+    for (int i = 1; i <= numBlocks; i++) {
         // setup each free block
         char *data = (char *) malloc(BLOCKSIZE);
         memset(data, 0, BLOCKSIZE); // zero out the data buffer
         data[0] = 4; // block type -> inode block
         data[1] = MAGIC_NUMBER;
         // set up linked list chain for free blocks
-        if (i < numblocks) {
+        if (i < numBlocks) {
             uint32_t nextFreeBlock = i + 1;
             *((uint32_t *)(data + 2)) = nextFreeBlock; // next free block pointer
         } else {
@@ -99,7 +99,7 @@ int tfs_mount(char *diskname){
     // check if there is already a disk mounted...only one disk can be mounted at a time
     if(mountedDisk != NULL) {
         perror("LIBTINYFS: Error: A disk is already mounted, unmount current\ndisk to mount a new disk");
-        return -1 // error 
+        return -1; // error 
     }
     // check if successfully retrieved the disk number
     int diskNum = openDisk(diskname, 0);
@@ -115,7 +115,7 @@ int tfs_mount(char *diskname){
     // successful read? correct FS type? 
     // ---NICK: Check the magic number in a loop, it should be on every block.
     if (readSuccess != 1 || data[2] != MAGIC_NUMBER) {
-        perror("LIBTINYFS: Error: Invalid magic number") // error
+        perror("LIBTINYFS: Error: Invalid magic number"); // error
     }
     //deallocate buffer
     free(data);
@@ -134,7 +134,8 @@ int tfs_unmount(void){
 }
 
 fileDescriptor tfs_openFile(char *name){
-    // search our inode list for that file name. 
+    // search our inode list for that file name
+    
     // if not in our list, allocate a new inode for the file
 
 }
