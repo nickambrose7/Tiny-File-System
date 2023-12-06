@@ -4,13 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 
 
 fileDescriptor currentfd = 0; // incremented each time we create a new file
 
 openFileTableEntry *openFileTable; // array of open file table entries, indexed by file descriptor
 
-Disk* mountedDisk = NULL; // currently mounted Disk
+Disk mountedDisk = NULL; // currently mounted Disk
 
 int tfs_mkfs(char *filename, int nBytes){
     /******************** BLOCK STRUCTURE DOCUMENTATION ****************************/
@@ -51,7 +52,7 @@ int tfs_mkfs(char *filename, int nBytes){
     }
     int diskNum = openDisk(filename, nBytes);
     if (diskNum < 0) {
-        perror("LIBTINYFS: error creating disk in tfs_mkfs");
+        perror("LIBTINYFS: Error creating disk in tfs_mkfs");
         return -1; // error 
     }
 
@@ -101,22 +102,29 @@ int tfs_mount(char *diskname){
         perror("LIBTINYFS: Error: A disk is already mounted, unmount current\ndisk to mount a new disk");
         return -1; // error 
     }
+
     // check if successfully retrieved the disk number
     int diskNum = openDisk(diskname, 0);
     if (diskNum == -1) {
         perror("LIBTINYFS: Error: Could not open disk");
         return -1; // error 
     }
-    // check the file system type
+
     // make a block sized buffer
     char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
-    // read the super block
-    int readSuccess = readBlock(diskNum, 0, data);
     // successful read? correct FS type? 
-    // ---NICK: Check the magic number in a loop, it should be on every block.
-    if (readSuccess != 1 || data[2] != MAGIC_NUMBER) {
-        perror("LIBTINYFS: Error: Invalid magic number"); // error
+    int i = 0;
+    while(readBlock(diskNum, i, data) < 0) {
+        if (data[0] <= 0 || data[0] > 4) {
+            perror("LIBTINYFS: Error: Invalid block type");
+            return -1; // error 
+        }
+        if (data[1] != MAGIC_NUMBER) {
+            perror("LIBTINYFS: Error: Invalid magic number");
+            return -1; // error 
+        }
     }
+
     //deallocate buffer
     free(data);
     return diskNum; // success
@@ -125,11 +133,13 @@ int tfs_mount(char *diskname){
 int tfs_unmount(void){
     // is there a disk mount?
     if (mountedDisk == NULL) {
-        perror("LIBTINYFS: No disk to unmount");
+        perror("LIBTINYFS: Error: No disk to unmount");
         return -1; // error
     }
     // unmount the currently mounted disk
     mountedDisk = NULL;
+    // reset openFileTable
+    openFileTable = NULL;
     return 1; // success, do you want to return unmounted disk num instead?
 }
 
@@ -143,7 +153,80 @@ int tfs_closeFile(fileDescriptor FD){
     
 }
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
+    if (mountedDisk == NULL) {
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)");
+        return -1; // error
+    }
+    // read super block
+    char *superData = (char *)malloc(BLOCKSIZE*sizeof(char));
+    int success = readBlock(mountedDisk->diskNumber, SUPER_BLOCK, superData)
+
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Issue with super block read when writing to file. (writeFile)");
+        return -1; // error
+    }
+
+    // get free block head which is a block number
+    int freeBlockHead;
+    memcpy(&freeBlockHead, superData[FB_OFFSET], sizeof(int));
+
+    // get inode head
+    int fileInode;
+    int inodeNum = openFileTable[FD];
+    int inodeHead;
+    memcpy(&inodeHead, superData[IB_OFFSET], sizeof(int));
+
+    // iterate through inode list until get to inodeNum_th inode
+    fileInode = inodeHead;
+    while (inodeNum != 0) {
+        // get inode info
+        char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
+        int success = readBlock(mountedDisk->diskNumber, fileInode, inodeData)
+
+        if (success < 0) {
+            perror("LIBTINYFS: Error: Invalid pointer to inode block (writeFile)");
+            return -1; // error
+        }
+        
+        // get next inode
+        memcpy(&fileInode, inodeData[NEXT_INODE_OFFSET], sizeof(int));
+        // decrement inodeNum
+        inodeNum--;
+    }
+
+    // // way to error check this?
+    // if (file condition) {
+    //     perror("LIBTINYFS: Error: File is not open or does not exist.");
+    //     return -1; // error
+    // }
+
+    // if file open
+
+    int blocksNeeded = size / USEABLE_DATA_SIZE + 1;
+
+    // IMPLEMENTATION CONSIDERATION: IF CURRENT WRITE CANNOT BE FULLY WRITTEN: ERROR AND EXIT? OR WRITE AS MUCH AS POSSIBLE AND THEN ERROR EXIT?
+
+    // Check if there are current data blocks under the file
+        // if there are blocks write data where file pointer is set
+        // if need more room (indicated by file pointer is larger than size) look at super block on disk to get next free block
+            // if no more free blocks error
+
+    // if new blocks are need at super block on disk to get next free block
+            // if no more free blocks error
+        
+    // increment the file size as the file is written in case of error
     
+    // get current time to modify timestamp
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    // total of 24 bytes (4 bytes/int * 6 ints)
+    int year = tm.tm_year + 1900;
+    int month = tm.tm_mon + 1;
+    int day = tm.tm_mday;
+    int hour = tm.tm_hour;
+    int min = tm.tm_min;
+    int sec = tm.tm_sec;
+
 }
 int tfs_deleteFile(fileDescriptor FD){
     

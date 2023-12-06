@@ -13,7 +13,14 @@ possible values */
 
 #define MAGIC_NUMBER 0x44
 
+#define SUPER_BLOCK 0
+#define FB_OFFSET 2
+#define IB_OFFSET 6
+#define NEXT_INODE_OFFSET 2
+
 #define MAX_BYTES 2147483647
+
+#define USEABLE_DATA_SIZE
 
 /* use as a special type to keep track of files */
 typedef int fileDescriptor;
@@ -22,6 +29,7 @@ typedef int fileDescriptor;
 typedef struct openFileTableEntry {
     int inodeNumber; // pointer the the inode
     int filePointer; // pointer to the current location in the file
+    openFileTableEntry nextFile; // item in linked list
 } openFileTableEntry;
 
 int tfs_mkfs(char* filename, int nBytes);
