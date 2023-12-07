@@ -7,7 +7,7 @@
 #include <time.h>
 
 
-fileDescriptor currentfd = 0; // incremented each time we create a new file
+fileDescriptor currentfd = 1; // incremented each time we create a new file
 
 openFileTableEntry *openFileTable; // array of open file table entries, indexed by file descriptor
 
@@ -152,12 +152,50 @@ fileDescriptor tfs_openFile(char *name){
     // read in our root inode LL head pointer from the super block
     char *superData = (char *)malloc(BLOCKSIZE);
     int success = readBlock(mountedDisk, SUPER_BLOCK, superData)
-        // if found, add to our open file table
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Issue with super block read when opening file. (openFile)");
+        return -1; // error
+    }
+    // get root inode LL head pointer
+    int inodeHead;
+    memcpy(&inodeHead, superData[IB_OFFSET], sizeof(int));
+    // read each inode in the linked list looking for a file name that matches ours
+    int currentInode = inodeHead;
+    char *inodeData = (char *)malloc(BLOCKSIZE);
+    char fileName[MAX_FILE_NAME_SIZE];
+    while (inodeHead != 0) {
+        // read in the inode
+        int success = readBlock(mountedDisk, currentInode, inodeData)
+        if (success < 0) {
+            perror("LIBTINYFS: Error: Invalid pointer to inode block (openFile)");
+            return -1; // error
+        }
+        // get file name
+        memcpy(fileName, inodeData[FILE_NAME_OFFSET], MAX_FILE_NAME_SIZE*sizeof(char));
+        // check if file name matches
+        if (strcmp(fileName, name) == 0) {
+            // found the file
+            // check if file is already open
+            for (int i = 0; i < currentfd; i++) {
+                if (openFileTable[i].inodeNum == currentInode) {
+                    // file is already open
+                    perror("LIBTINYFS: Error: File is already open");
+                    return -1; // error
+                }
+            }
+            // file is not already open
+            // add to open file table
+            openFileTable[currentfd].inodeNum = currentInode;
+            openFileTable[currentfd].filePointer = 0; // set file pointer to beginning of file
+            currentfd++; // increment file descriptor
+            return currentfd - 1; // return file descriptor
+        }
+    }
     
-        // if not in our list, allocate a new inode for the file
-            // add to our open file table
+    // if not in our list, allocate a new inode for the file
+        // add to our open file table
 
-
+    // free everything at the end
 
 }
 int tfs_closeFile(fileDescriptor FD){

@@ -13,9 +13,18 @@ possible values */
 
 #define MAGIC_NUMBER 0x44
 
-#define SUPER_BLOCK 0
-#define FB_OFFSET 2
-#define IB_OFFSET 6
+
+/* SUPER BLOCK DEFINITIONS */
+#define SUPER_BLOCK 0 // super block number
+#define FB_OFFSET 2 // offset to get free block LL head from super block
+#define IB_OFFSET 6 // offset to get inode LL head from super block
+
+/* INODE BLOCK DEFINITIONS */
+#define FILE_NAME_OFFSET 14 // offset to get file name from inode block
+
+
+#define MAX_FILE_NAME_SIZE 9 // include the null terminator
+
 #define NEXT_INODE_OFFSET 2
 
 #define MAX_BYTES 2147483647
