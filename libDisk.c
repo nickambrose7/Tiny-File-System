@@ -4,7 +4,7 @@
 #include <string.h>
 
 
-int diskCounter = 0; // global to keep track of number of disks opened
+int diskCounter = 1; // global to keep track of number of disks opened
 
 Disk *diskListHead = NULL; // global to keep track of list of disks
 

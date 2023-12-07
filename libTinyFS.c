@@ -11,7 +11,8 @@ fileDescriptor currentfd = 0; // incremented each time we create a new file
 
 openFileTableEntry *openFileTable; // array of open file table entries, indexed by file descriptor
 
-Disk mountedDisk = NULL; // currently mounted Disk
+int mountedDisk = 0; // currently mounted Disk, just need to keep track of disk number,
+// bc that's all that libDisk needs for read, write, and close. 0 means no disk mounted. 
 
 int tfs_mkfs(char *filename, int nBytes){
     /******************** BLOCK STRUCTURE DOCUMENTATION ****************************/
@@ -98,14 +99,14 @@ int tfs_mkfs(char *filename, int nBytes){
 
 int tfs_mount(char *diskname){
     // check if there is already a disk mounted...only one disk can be mounted at a time
-    if(mountedDisk != NULL) { // do you want to automatically unmount the currently mounted disk or nah?
+    if(mountedDisk != 0) { // do you want to automatically unmount the currently mounted disk or nah?
         perror("LIBTINYFS: Error: A disk is already mounted, unmount current\ndisk to mount a new disk");
         return -1; // error 
     }
 
     // check if successfully retrieved the disk number
-    int diskNum = openDisk(diskname, 0);
-    if (diskNum == -1) {
+    mountedDisk = openDisk(diskname, 0);
+    if (mountedDisk == -1) {
         perror("LIBTINYFS: Error: Could not open disk");
         return -1; // error 
     }
@@ -114,7 +115,7 @@ int tfs_mount(char *diskname){
     char *data = (char *)malloc(BLOCKSIZE*sizeof(char));
     // successful read? correct FS type? 
     int i = 0;
-    while(readBlock(diskNum, i, data) < 0) {
+    while(readBlock(mountedDisk, i, data) < 0) {
         if (data[0] <= 0 || data[0] > 4) {
             perror("LIBTINYFS: Error: Invalid block type");
             return -1; // error 
@@ -127,31 +128,42 @@ int tfs_mount(char *diskname){
 
     //deallocate buffer
     free(data);
-    return diskNum; // success
+    return mountedDisk; // success - will be a positive number
 }
 
 int tfs_unmount(void){
     // is there a disk mount?
-    if (mountedDisk == NULL) {
+    if (mountedDisk != 0) {
         perror("LIBTINYFS: Error: No disk to unmount");
         return -1; // error
     }
     // unmount the currently mounted disk
-    mountedDisk = NULL;
+    mountedDisk = 0;
     // reset openFileTable
+    free(openFileTable) // need to free the open file table
     openFileTable = NULL;
-    return 1; // success, do you want to return unmounted disk num instead?
+    return 1; // success
 }
 
 fileDescriptor tfs_openFile(char *name){
+    // creates or opens a file for reading and writing
+
     // search our inode list for that file name
+    // read in our root inode LL head pointer from the super block
+    char *superData = (char *)malloc(BLOCKSIZE);
+    int success = readBlock(mountedDisk, SUPER_BLOCK, superData)
+        // if found, add to our open file table
     
-    // if not in our list, allocate a new inode for the file
+        // if not in our list, allocate a new inode for the file
+            // add to our open file table
+
+
 
 }
 int tfs_closeFile(fileDescriptor FD){
     
 }
+
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     if (mountedDisk == NULL) {
         perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)");
