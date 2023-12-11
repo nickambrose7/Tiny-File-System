@@ -13,5 +13,8 @@ int main() {
         perror("failed to make disk");
         return 1;
     }
+    // try to mount the file system:
+
+    // try to open a file:
 }
 
