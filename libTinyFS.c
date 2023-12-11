@@ -7,12 +7,22 @@
 #include <time.h>
 
 
-fileDescriptor currentfd = 1; // incremented each time we create a new file
 
-openFileTableEntry *openFileTable; // array of open file table entries, indexed by file descriptor
+openFileTableEntry **openFileTable = NULL; // array of pointers to open file table entries, indexed by file descriptor
 
 int mountedDisk = 0; // currently mounted Disk, just need to keep track of disk number,
 // bc that's all that libDisk needs for read, write, and close. 0 means no disk mounted. 
+
+int maxNumberOfFiles = 0; // max number of files that can be open/in the file system at once
+
+int getTimestamp(char *buffer) {
+    time_t now;
+    time(&now);
+    struct tm* localTime = localtime(&now);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localTime);
+    //printf("Current Timestamp: %s\n", buffer);
+    return 1;
+}
 
 int tfs_mkfs(char *filename, int nBytes){
     /******************** BLOCK STRUCTURE DOCUMENTATION ****************************/
@@ -56,12 +66,18 @@ int tfs_mkfs(char *filename, int nBytes){
         perror("LIBTINYFS: Error creating disk in tfs_mkfs");
         return -1; // error 
     }
+    /* Set max number of files constant */
+    maxNumberOfFiles = numBlocks / 2; // 2 blocks per file (inode block and data block)
+    if (maxNumberOfFiles < 1) {
+        perror("LIBTINYFS: Error: File system size too small");
+        return -1; // error
+    }
 
     /* SUPERBLOCK INIT */
     char *data = (char *)malloc(BLOCKSIZE);
     memset(data, 0, BLOCKSIZE); // zero out the data buffer
-    data[0] = 1; // block type -> super block
-    data[1] = MAGIC_NUMBER;
+    data[BLOCK_NUMBER_OFFSET] = 1; // block type -> super block
+    data[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
     uint32_t freeBlockHead = 1; // always 1
     *((uint32_t *)(data + 2)) = freeBlockHead; // free block LL head pointer
     // write the super block to the disk
@@ -77,8 +93,8 @@ int tfs_mkfs(char *filename, int nBytes){
         // setup each free block
         char *data = (char *) malloc(BLOCKSIZE);
         memset(data, 0, BLOCKSIZE); // zero out the data buffer
-        data[0] = 4; // block type -> inode block
-        data[1] = MAGIC_NUMBER;
+        data[BLOCK_NUMBER_OFFSET] = 4; // block type -> inode block
+        data[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
         // set up linked list chain for free blocks
         if (i < numBlocks) {
             uint32_t nextFreeBlock = i + 1;
@@ -116,15 +132,18 @@ int tfs_mount(char *diskname){
     // successful read? correct FS type? 
     int i = 0;
     while(readBlock(mountedDisk, i, data) < 0) {
-        if (data[0] <= 0 || data[0] > 4) {
+        if (data[BLOCK_NUMBER_OFFSET] <= 0 || data[BLOCK_NUMBER_OFFSET] > 4) {
             perror("LIBTINYFS: Error: Invalid block type");
             return -1; // error 
         }
-        if (data[1] != MAGIC_NUMBER) {
+        if (data[MAGIC_NUMBER_OFFSET] != MAGIC_NUMBER) {
             perror("LIBTINYFS: Error: Invalid magic number");
             return -1; // error 
         }
     }
+
+    // allocate open file table
+    openFileTable = (openFileTableEntry *)malloc(maxNumberOfFiles*sizeof(openFileTableEntry));
 
     //deallocate buffer
     free(data);
@@ -140,7 +159,7 @@ int tfs_unmount(void){
     // unmount the currently mounted disk
     mountedDisk = 0;
     // reset openFileTable
-    free(openFileTable) // need to free the open file table
+    free(openFileTable) 
     openFileTable = NULL;
     return 1; // success
 }
@@ -158,12 +177,12 @@ fileDescriptor tfs_openFile(char *name){
     }
     // get root inode LL head pointer
     int inodeHead;
-    memcpy(&inodeHead, superData[IB_OFFSET], sizeof(int));
+    memcpy(&inodeHead, superData + IB_OFFSET, sizeof(int));
     // read each inode in the linked list looking for a file name that matches ours
     int currentInode = inodeHead;
     char *inodeData = (char *)malloc(BLOCKSIZE);
     char fileName[MAX_FILE_NAME_SIZE];
-    while (inodeHead != 0) {
+    while (1) {
         // read in the inode
         int success = readBlock(mountedDisk, currentInode, inodeData)
         if (success < 0) {
@@ -171,13 +190,13 @@ fileDescriptor tfs_openFile(char *name){
             return -1; // error
         }
         // get file name
-        memcpy(fileName, inodeData[FILE_NAME_OFFSET], MAX_FILE_NAME_SIZE*sizeof(char));
+        memcpy(fileName, inodeData + INODE_FILE_NAME_OFFSET, MAX_FILE_NAME_SIZE*sizeof(char));
         // check if file name matches
         if (strcmp(fileName, name) == 0) {
             // found the file
             // check if file is already open
-            for (int i = 0; i < currentfd; i++) {
-                if (openFileTable[i].inodeNum == currentInode) {
+            for (int i = 0; i < maxNumberOfFiles; i++) {
+                if (openFileTable[i]->inodeNumber == currentInode) {
                     // file is already open
                     perror("LIBTINYFS: Error: File is already open");
                     return -1; // error
@@ -185,14 +204,91 @@ fileDescriptor tfs_openFile(char *name){
             }
             // file is not already open
             // add to open file table
-            openFileTable[currentfd].inodeNum = currentInode;
-            openFileTable[currentfd].filePointer = 0; // set file pointer to beginning of file
-            currentfd++; // increment file descriptor
-            return currentfd - 1; // return file descriptor
+            openFileTableEntry *newEntry = (openFileTableEntry *)malloc(sizeof(openFileTableEntry));
+            if (newEntry == NULL) {
+                perror("LIBTINYFS: Error: Could not allocate memory for new open file table entry");
+                return -1; // error
+            }
+            newEntry->filePointer = 0; // set file pointer to beginning of file
+            // find the next empty spot in the open file table
+            int currentfd = 0;
+            while (openFileTable[currentfd] != NULL) {
+                currentfd++;
+            }
+            newEntry->fd = currentfd; // set file descriptor
+            return currentfd; // return file descriptor
         }
+        // clear fileName for the next iteration
+        memset(fileName, 0, MAX_FILE_NAME_SIZE*sizeof(char));
+        if (inodeData[INODE_NEXT_INODE_OFFSET] == 0) {
+            // no more inodes to check, need this pointer to our last inode
+            break;
+        }
+        // get next inode 
+        memcpy(&currentInode, inodeData + INODE_NEXT_INODE_OFFSET, sizeof(int)); 
     }
     
     // if not in our list, allocate a new inode for the file
+    // read in our free block LL head pointer from the super block
+    int freeBlockHead;
+    memcpy(&freeBlockHead, superData + FB_OFFSET, sizeof(int));
+    // check if there are any free blocks
+    if (freeBlockHead == 0) {
+        perror("LIBTINYFS: Error: No free blocks");
+        return -1; // error
+    }
+    // get the first free block
+    char *freeBlockData = (char *)malloc(BLOCKSIZE);
+    int success = readBlock(mountedDisk, freeBlockHead, freeBlockData);
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Invalid pointer to free block (openFile)");
+        return -1; // error
+    }
+
+    // get the next free block
+    int nextFreeBlock;
+    memcpy(&nextFreeBlock, freeBlockData + FREE_NEXT_BLOCK_OFFSET, sizeof(int));
+    // update the free block LL head pointer in the super block
+    memcpy(superData + FB_OFFSET, &nextFreeBlock, sizeof(int));
+    // write the super block back to disk
+    int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData); 
+    if (writeSuccess < 0) {
+        perror("LIBTINYFS: Error: Issue with super block write when opening file. (openFile)");
+        return -1; // error
+    }
+    // turn the free block into an inode block
+    int newInodeBlockNum = freeBlockHead;
+    freeBlockData[BLOCK_NUMBER_OFFSET] = 2; // block type -> inode block
+    freeBlockData[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
+    // set the next inode pointer
+    // get the next inode block from the super block
+    int inodeHead;
+    memcpy(&inodeHead, superData + IB_OFFSET, sizeof(int));
+    memcpy(freeBlockData + INODE_NEXT_INODE_OFFSET, &inodeHead, sizeof(int));
+    // update the super block to point to our new inode block
+    memcpy(superData + IB_OFFSET, &newInodeBlockNum, sizeof(int));
+    // write the super block back to disk
+    int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData);
+    // set the file size to 0
+    int fileSize = 0;
+    memcpy(freeBlockData + INODE_FILE_SIZE_OFFSET, &fileSize, sizeof(int));
+    // set data block pointer to 0
+    int dataBlockPointer = 0;
+    memcpy(freeBlockData + INODE_DATA_BLOCK_OFFSET, &dataBlockPointer, sizeof(int));
+    // set file name
+    memset(freeBlockData + INODE_FILE_NAME_OFFSET, 0, MAX_FILE_NAME_SIZE*sizeof(char));
+    memcpy(freeBlockData + INODE_FILE_NAME_OFFSET, name, strlen(name)*sizeof(char)); 
+    // set time stamp
+    char *timeStamp = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+    getTimestamp(timeStamp);
+    memcpy(freeBlockData + INODE_TIME_STAMP_OFFSET, timeStamp, TIMESTAMP_BUFFER_SIZE*sizeof(char));
+
+    // add this inode to the head of the inode LL
+    // need to get the old head of the inode LL, set our new inode's next pointer to that, and then set the inode LL head pointer to our new inode
+
+
+
+
         // add to our open file table
 
     // free everything at the end
