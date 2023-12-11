@@ -9,6 +9,7 @@
 
 fileDescriptor currentfd = 0; // incremented each time we create a new file
 
+// initialize with 0, 0, int cannot be NULL --> made a constant called INT_NULL = 0 in header
 openFileTableEntry *openFileTable; // array of open file table entries, indexed by file descriptor
 
 Disk mountedDisk = NULL; // currently mounted Disk
@@ -131,7 +132,7 @@ int tfs_mount(char *diskname){
 }
 
 int tfs_unmount(void){
-    // is there a disk mount?
+    // is there a disk mounted?
     if (mountedDisk == NULL) {
         perror("LIBTINYFS: Error: No disk to unmount");
         return -1; // error
@@ -147,6 +148,41 @@ fileDescriptor tfs_openFile(char *name){
     // search our inode list for that file name
     
     // if not in our list, allocate a new inode for the file
+    // read super block
+    char *superData = (char *)malloc(BLOCKSIZE*sizeof(char));
+    int success = readBlock(mountedDisk->diskNumber, SUPER_BLOCK, superData)
+
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Issue with super block read when writing to file. (writeFile)");
+        return -1; // error
+    }
+
+    // get inode head
+    int fileInode;
+    int inodeNum = openFileTable[FD];
+    int inodeHead;
+    memcpy(&inodeHead, superData[IB_OFFSET], sizeof(int));
+
+    // iterate through inode list until get to inodeNum_th inode
+    fileInode = inodeHead; // after loop completion, this is the location of the file inode
+    while (fileInode != NULL) {
+        // get inode info
+        char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
+        int success = readBlock(mountedDisk->diskNumber, fileInode, inodeData)
+
+        if (success < 0) {
+            perror("LIBTINYFS: Error: Invalid pointer to inode block (writeFile)");
+            return -1; // error
+        }
+
+        // check the inode file name
+            // break if equal
+        // else
+        // get next inode
+        memcpy(&fileInode, inodeData[NEXT_INODE_OFFSET], sizeof(int));
+    }
+    // if fileInode == NULL --> file not existing
+    // create file
 
 }
 int tfs_closeFile(fileDescriptor FD){
@@ -157,6 +193,15 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)");
         return -1; // error
     }
+
+    // check if FD is in OFT
+    int oftEntry = openFileTable[FD];
+    if (fileInode == NULL) {
+        perror("LIBTINYFS: Error: File has not been opened. (writeFile)");
+        return -1; // error
+    }
+    int fileInode = oftEntry->inodeNumber
+
     // read super block
     char *superData = (char *)malloc(BLOCKSIZE*sizeof(char));
     int success = readBlock(mountedDisk->diskNumber, SUPER_BLOCK, superData)
@@ -170,49 +215,34 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     int freeBlockHead;
     memcpy(&freeBlockHead, superData[FB_OFFSET], sizeof(int));
 
-    // get inode head
-    int fileInode;
-    int inodeNum = openFileTable[FD];
-    int inodeHead;
-    memcpy(&inodeHead, superData[IB_OFFSET], sizeof(int));
-
-    // iterate through inode list until get to inodeNum_th inode
-    fileInode = inodeHead;
-    while (inodeNum != 0) {
-        // get inode info
-        char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
-        int success = readBlock(mountedDisk->diskNumber, fileInode, inodeData)
-
-        if (success < 0) {
-            perror("LIBTINYFS: Error: Invalid pointer to inode block (writeFile)");
-            return -1; // error
-        }
-        
-        // get next inode
-        memcpy(&fileInode, inodeData[NEXT_INODE_OFFSET], sizeof(int));
-        // decrement inodeNum
-        inodeNum--;
-    }
-
-    // // way to error check this?
-    // if (file condition) {
-    //     perror("LIBTINYFS: Error: File is not open or does not exist.");
-    //     return -1; // error
-    // }
-
     // if file open
-
-    int blocksNeeded = size / USEABLE_DATA_SIZE + 1;
+    char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char)); // the block data of the file's inode
+    int success = readBlock(mountedDisk->diskNumber, fileInode, inodeData)
+    int currentFileSize; // get file size, used for computation
+    memcpy(&currentFileSize, inodeData[FILE_SIZE_OFFSET], sizeof(int));
+    int dataBlock; // are there any data blocks that are currently used by the file
+    memcpy(&dataBlock, inodeData[DATA_EXTENT_OFFSET], sizeof(int));
 
     // IMPLEMENTATION CONSIDERATION: IF CURRENT WRITE CANNOT BE FULLY WRITTEN: ERROR AND EXIT? OR WRITE AS MUCH AS POSSIBLE AND THEN ERROR EXIT?
 
     // Check if there are current data blocks under the file
+    // if new blocks are needed, get pointer on super block on disk to get next free block
+    if (currentFileSize == 0){
+        int blocksNeeded = size / USEABLE_DATA_SIZE + (size % USEABLE_DATA_SIZE > 0 ? 1 : 0);
+        while (freeBlockHead != INT_NULL) { // if no more free blocks error
+            
+        }
+        
+        if (blocksNeeded > 0) {
+            perror("LIBTINYFS: Error: No free blocks. Incomplete write (writeFile)");
+            return -1; // error
+        }
+    }
         // if there are blocks write data where file pointer is set
         // if need more room (indicated by file pointer is larger than size) look at super block on disk to get next free block
             // if no more free blocks error
 
-    // if new blocks are need at super block on disk to get next free block
-            // if no more free blocks error
+    
         
     // increment the file size as the file is written in case of error
     
