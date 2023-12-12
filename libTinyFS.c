@@ -42,8 +42,8 @@ int tfs_mkfs(char *filename, int nBytes){
     | 1 byte           | 1 byte       | 4 bytes                    |
     
     ***INODE BLOCKS***
-    | block number = 2 | MAGIC_NUMBER | next inode pointer    | file size | data block pointer | file name | time stamp |
-    | 1 byte           | 1 byte       | 4 bytes               | 4 bytes   | 4 bytes            | 9 bytes   | 25 bytes   |
+    | block number = 2 | MAGIC_NUMBER | next inode pointer    | file size | data block pointer | file name | time stamp - creation | time stamp - last modified | time stamp - last accessed |
+    | 1 byte           | 1 byte       | 4 bytes               | 4 bytes   | 4 bytes            | 9 bytes   |       25 bytes        |           25 bytes         |           25 bytes         |
     
     ***DATA BLOCKS***
     | block number = 3 | MAGIC_NUMBER | pointer to next data block | data            |
@@ -327,7 +327,25 @@ fileDescriptor tfs_openFile(char *name){
 }
 
 int tfs_closeFile(fileDescriptor FD) {
-    
+    // check if there is a disk mounted
+    if (mountedDisk == 0) {
+        perror("LIBTINYFS: Error: No disk mounted. Cannot close file. (closeFile)");
+        return -1; // error
+    }
+    // check if file descriptor is valid
+    if (FD < 0 || FD >= maxNumberOfFiles) {
+        perror("LIBTINYFS: Error: Invalid file descriptor. Cannot close file. (closeFile)");
+        return -1; // error
+    }
+    // check if file is open
+    if (openFileTable[FD] == NULL) {
+        perror("LIBTINYFS: Error: File is not open. Cannot close file. (closeFile)");
+        return -1; // error
+    }
+    // free the open file table entry
+    free(openFileTable[FD]);
+    openFileTable[FD] = NULL;
+    return 1; // success
 }
 
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
@@ -406,12 +424,17 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     int sec = tm.tm_sec;
 
 }
-int tfs_deleteFile(fileDescriptor FD){
-    
+int tfs_deleteFile(fileDescriptor FD) {
+    // remove the file from the inode linked list
+    // deallocate all of its data blocks
+    // add all of the above blocks to the free block linked list- make a function for this prob
+    // remove the file from the open file table
 }
+
 int tfs_readByte(fileDescriptor FD, char *buffer){
     
 }
 int tfs_seek(fileDescriptor FD, int offset){
     
 }
+
