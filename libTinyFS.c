@@ -93,7 +93,7 @@ int tfs_mkfs(char *filename, int nBytes){
         // setup each free block
         char *data = (char *) malloc(BLOCKSIZE);
         memset(data, 0, BLOCKSIZE); // zero out the data buffer
-        data[BLOCK_NUMBER_OFFSET] = 4; // block type -> inode block
+        data[BLOCK_NUMBER_OFFSET] = 4; // block type -> free block
         data[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
         // set up linked list chain for free blocks
         if (i < numBlocks) {
@@ -424,11 +424,156 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     int sec = tm.tm_sec;
 
 }
+int deallocateBlock(int blockNum) {
+    /* This function takes a block number of an 
+    inode or data block and deallocates it, and 
+    adds it to the free block list */
+    // read in the block
+    char *data = (char *)malloc(BLOCKSIZE);
+    int success = readBlock(mountedDisk, blockNum, data);
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Invalid pointer to block (deallocateBlock)");
+        return -1; // error
+    }
+    // zero out the data buffer
+    memset(data, 0, BLOCKSIZE);
+    // prep the data buffer to be written as a free block
+    data[BLOCK_NUMBER_OFFSET] = FREE_BLOCK_TYPE; // block type -> free block
+    data[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
+    // read in the super block
+    char *superData = (char *)malloc(BLOCKSIZE);
+    success = readBlock(mountedDisk, SUPER_BLOCK, superData);
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Issue with super block read when deallocating block. (deallocateBlock)");
+        return -1; // error
+    }
+    // get the free block LL head pointer
+    int freeBlockHead;
+    memcpy(&freeBlockHead, superData + FB_OFFSET, sizeof(int));
+    // set the next free block pointer to the current free block LL head pointer
+    memcpy(data + FREE_NEXT_BLOCK_OFFSET, &freeBlockHead, sizeof(int));
+    // update the super block to point to the new free block
+    memcpy(superData + FB_OFFSET, &blockNum, sizeof(int));
+    // write the super block back to disk
+    int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData);
+    if (writeSuccess < 0) {
+        perror("LIBTINYFS: Error: Issue with super block write when deallocating block. (deallocateBlock)");
+        return -1; // error
+    }
+    // write the free block back to disk
+    writeSuccess = writeBlock(mountedDisk, blockNum, data);
+    if (writeSuccess < 0) {
+        perror("LIBTINYFS: Error: Issue with free block write when deallocating block. (deallocateBlock)");
+        return -1; // error
+    }
+    return 1; // success
+}
+
 int tfs_deleteFile(fileDescriptor FD) {
     // remove the file from the inode linked list
     // deallocate all of its data blocks
     // add all of the above blocks to the free block linked list- make a function for this prob
     // remove the file from the open file table
+    inodeToDelete = openFileTable[FD]->inodeNumber;
+    // read in our inode LL head pointer from the super block
+    char *superData = (char *)malloc(BLOCKSIZE);
+    int success = readBlock(mountedDisk, SUPER_BLOCK, superData);   
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Issue with super block read when deleting file. (deleteFile)");
+        return -1; // error
+    }
+    // get root inode LL head pointer
+    int curInode;
+    char *curInodeData = (char *)malloc(BLOCKSIZE);
+    memcpy(&curInode, superData + IB_OFFSET, sizeof(int));
+    success = readBlock(mountedDisk, curInode, curInodeData);
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Invalid pointer to inode block (deleteFile)");
+        return -1; // error
+    }
+    // check if inode to delete is the head of the inode LL
+    if (curInode == inodeToDelete) {
+        // inode to delete is the head of the inode LL
+        // update the super block to point to the next inode
+        memcpy(superData + IB_OFFSET, curInodeData + INODE_NEXT_INODE_OFFSET, sizeof(int));
+        // write the super block back to disk
+        int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData); 
+        if (writeSuccess < 0) {
+            perror("LIBTINYFS: Error: Issue with super block write when deleting file. (deleteFile)");
+            return -1; // error
+        }
+    }
+    else { // inode to delete is not at the head of the linked list
+        // iterate through the inode LL until we find the inode to delete
+        int nextInode;
+        memcpy(&nextInode, curInodeData + INODE_NEXT_INODE_OFFSET, sizeof(int));
+        while (nextInode != inodeToDelete) {
+            // read in the next inode
+            success = readBlock(mountedDisk, nextInode, curInodeData);
+            if (success < 0) {
+                perror("LIBTINYFS: Error: Invalid pointer to inode block (deleteFile)");
+                return -1; // error
+            }
+            curInode = nextInode;
+            // get the next inode
+            memcpy(&nextInode, curInodeData + INODE_NEXT_INODE_OFFSET, sizeof(int));
+        }
+        char *nextInodeData = (char *)malloc(BLOCKSIZE);
+        // read in the next inode data
+        success = readBlock(mountedDisk, nextInode, nextInodeData);
+        if (success < 0) {
+            perror("LIBTINYFS: Error: Invalid pointer to inode block (deleteFile)");
+            return -1; // error
+        }
+        // now we have the inode before the inode to delete
+        // update the inode before the inode to delete to point to the inode after the inode to delete
+        int inodeAfterToDelete;
+        memcpy(&inodeAfterToDelete, nextInodeData + INODE_NEXT_INODE_OFFSET, sizeof(int));
+        memcpy(curInodeData + INODE_NEXT_INODE_OFFSET, &inodeAfterToDelete, sizeof(int));
+        // write the inode before the inode to delete back to disk
+        int writeSuccess = writeBlock(mountedDisk, curInode, curInodeData);
+        if (writeSuccess < 0) {
+            perror("LIBTINYFS: Error: Issue with inode block write when deleting file. (deleteFile)");
+            return -1; // error
+        }
+    }
+    // now that we have removed the inode from the inode LL, deallocate the inode and all of its data blocks
+    // read in the inode data
+    success = readBlock(mountedDisk, inodeToDelete, curInodeData);
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Invalid pointer to inode block (deleteFile)");
+        return -1; // error
+    }
+    // get the data block pointer
+    int dataBlockPointer;
+    memcpy(&dataBlockPointer, curInodeData + INODE_DATA_BLOCK_OFFSET, sizeof(int));
+    // deallocate the data blocks
+    while (1) {
+        // read in the data block
+        char *dataBlock = (char *)malloc(BLOCKSIZE);
+        success = readBlock(mountedDisk, dataBlockPointer, dataBlock);
+        if (success < 0) {
+            perror("LIBTINYFS: Error: Invalid pointer to data block (deleteFile)");
+            return -1; // error
+        }
+        // get the next data block pointer
+        int nextDataBlockPointer;
+        memcpy(&nextDataBlockPointer, dataBlock + DATA_NEXT_BLOCK_OFFSET, sizeof(int));
+        // deallocate the data block
+        deallocateBlock(dataBlockPointer);
+        // update the data block pointer
+        dataBlockPointer = nextDataBlockPointer;
+        if (dataBlockPointer == 0) {
+            // no more data blocks to deallocate
+            break;
+        }
+    }
+    // deallocate the inode
+    deallocateBlock(inodeToDelete);
+    free(dataBlock);
+    free(superData);
+    free(curInodeData);
+    free(nextInodeData);
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer){
