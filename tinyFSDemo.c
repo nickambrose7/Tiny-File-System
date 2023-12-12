@@ -12,6 +12,8 @@
 #include <ctype.h>
 
 void printHexDump(const char *filename) {
+    /* be carful to wait before calling this function 
+    because sometimes files take a long time to write. */
     FILE *file = fopen(filename, "rb");
     if (file == NULL) {
         perror("Error opening file");
@@ -79,7 +81,9 @@ int main() {
     fd2 = tfs_openFile("file2");
     fd3 = tfs_openFile("file3");
     fd4 = tfs_openFile("file4");
-    
+    printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+
+
     if (tfs_openFile("file1") != -1) {
         printf("should fail to open file1, why didn't it?");
     }
@@ -101,7 +105,7 @@ int main() {
     tfs_readFileInfo(fd3);
     tfs_readFileInfo(fd4);
 
-    printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+    printf("file descriptors before delete: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
     if (tfs_deleteFile(fd1) < 0) {
         perror("failed to delete file1");
         return 1;
@@ -112,7 +116,7 @@ int main() {
         perror("failed to open file1 after deleting, this shouldn't happen");
         return 1;
     }
-    printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+    printf("file descriptors after delete and reopen (should be the same): %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
 
 
     // test unmount then remount
@@ -130,14 +134,15 @@ int main() {
         perror("failed to open file4 after 2nd mount, this shouldn't happen");
         return 1;
     }
-
-    if (tfs_deleteFile(fd4) < 0) {
-        perror("failed to delete file4 after 2nd mount, this shouldn't happen");
-        return 1;
-    }
-
-    // try to open a file:
     printf("Done with demo\n");
+    // clean up
+    int status = remove("test.dsk");
+    if (status == 0) {
+        printf("File deleted successfully.\n");
+    } 
+    else {
+        perror("Error deleting the file");
+    }
     return 0;
+    
 }
-

@@ -343,6 +343,11 @@ fileDescriptor tfs_openFile(char *name){
 }
 
 int tfs_closeFile(fileDescriptor FD) {
+    // check if FD is valid
+    if (openFileTable[FD] == NULL) {
+        perror("LIBTINYFS: Error: Invalid file descriptor. Cannot close file. (closeFile)");
+        return -1; // error
+    }
     // check if there is a disk mounted
     if (mountedDisk == 0) {
         perror("LIBTINYFS: Error: No disk mounted. Cannot close file. (closeFile)");
@@ -490,6 +495,10 @@ int tfs_deleteFile(fileDescriptor FD) {
     // deallocate all of its data blocks
     // add all of the above blocks to the free block linked list- make a function for this prob
     // remove the file from the open file table
+    if (openFileTable[FD] == NULL) {
+        printf("LIBTINYFS: Error: invalid FD. Cannot delete file. (deleteFile)");
+        return -1; // error
+    }
     int inodeToDelete = openFileTable[FD]->inodeNumber;
     // read in our inode LL head pointer from the super block
     char *superData = (char *)malloc(BLOCKSIZE);
@@ -564,29 +573,32 @@ int tfs_deleteFile(fileDescriptor FD) {
     // get the data block pointer
     int dataBlockPointer;
     memcpy(&dataBlockPointer, curInodeData + INODE_DATA_BLOCK_OFFSET, sizeof(int));
-    // deallocate the data blocks
-    char *dataBlock = (char *)malloc(BLOCKSIZE);
-    while (1) {
-        success = readBlock(mountedDisk, dataBlockPointer, dataBlock);
-        if (success < 0) {
-            perror("LIBTINYFS: Error: Invalid pointer to data block (deleteFile)");
-            return -1; // error
+    if (dataBlockPointer != 0) { // need to deallocate data blocks
+        // deallocate the data blocks
+        char *dataBlock = (char *)malloc(BLOCKSIZE);
+        while (1) {
+            success = readBlock(mountedDisk, dataBlockPointer, dataBlock);
+            if (success < 0) {
+                perror("LIBTINYFS: Error: Invalid pointer to data block (deleteFile)");
+                return -1; // error
+            }
+            // get the next data block pointer
+            int nextDataBlockPointer;
+            memcpy(&nextDataBlockPointer, dataBlock + DATA_NEXT_BLOCK_OFFSET, sizeof(int));
+            // deallocate the data block
+            deallocateBlock(dataBlockPointer);
+            // update the data block pointer
+            dataBlockPointer = nextDataBlockPointer;
+            if (dataBlockPointer == 0) {
+                // no more data blocks to deallocate
+                break;
+            }
         }
-        // get the next data block pointer
-        int nextDataBlockPointer;
-        memcpy(&nextDataBlockPointer, dataBlock + DATA_NEXT_BLOCK_OFFSET, sizeof(int));
-        // deallocate the data block
-        deallocateBlock(dataBlockPointer);
-        // update the data block pointer
-        dataBlockPointer = nextDataBlockPointer;
-        if (dataBlockPointer == 0) {
-            // no more data blocks to deallocate
-            break;
-        }
+        free(dataBlock);
     }
     // deallocate the inode
     deallocateBlock(inodeToDelete);
-    free(dataBlock);
+    tfs_closeFile(FD);
     free(superData);
     free(curInodeData);
 
