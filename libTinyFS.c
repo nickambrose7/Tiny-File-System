@@ -123,6 +123,7 @@ int tfs_mount(char *diskname){
     // check if successfully retrieved the disk number
     mountedDisk = openDisk(diskname, 0);
     if (mountedDisk == -1) {
+        mountedDisk = 0; // it failed so we must reset the mountedDisk global
         perror("LIBTINYFS: Error: Could not open disk");
         return -1; // error 
     }
@@ -489,7 +490,7 @@ int tfs_deleteFile(fileDescriptor FD) {
     // deallocate all of its data blocks
     // add all of the above blocks to the free block linked list- make a function for this prob
     // remove the file from the open file table
-    inodeToDelete = openFileTable[FD]->inodeNumber;
+    int inodeToDelete = openFileTable[FD]->inodeNumber;
     // read in our inode LL head pointer from the super block
     char *superData = (char *)malloc(BLOCKSIZE);
     int success = readBlock(mountedDisk, SUPER_BLOCK, superData);   
@@ -551,6 +552,7 @@ int tfs_deleteFile(fileDescriptor FD) {
             perror("LIBTINYFS: Error: Issue with inode block write when deleting file. (deleteFile)");
             return -1; // error
         }
+        free(nextInodeData);
     }
     // now that we have removed the inode from the inode LL, deallocate the inode and all of its data blocks
     // read in the inode data
@@ -563,9 +565,8 @@ int tfs_deleteFile(fileDescriptor FD) {
     int dataBlockPointer;
     memcpy(&dataBlockPointer, curInodeData + INODE_DATA_BLOCK_OFFSET, sizeof(int));
     // deallocate the data blocks
+    char *dataBlock = (char *)malloc(BLOCKSIZE);
     while (1) {
-        // read in the data block
-        char *dataBlock = (char *)malloc(BLOCKSIZE);
         success = readBlock(mountedDisk, dataBlockPointer, dataBlock);
         if (success < 0) {
             perror("LIBTINYFS: Error: Invalid pointer to data block (deleteFile)");
@@ -588,7 +589,7 @@ int tfs_deleteFile(fileDescriptor FD) {
     free(dataBlock);
     free(superData);
     free(curInodeData);
-    free(nextInodeData);
+
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer){

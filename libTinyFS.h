@@ -43,6 +43,7 @@ possible values */
 
 /* DATA BLCOK DEFINITIONS */
 #define DATA_BLOCK_TYPE 3
+#define DATA_NEXT_BLOCK_OFFSET 2 // offset to get next data block from data block
 
 
 #define MAX_FILE_NAME_SIZE 9 // include the null terminator
