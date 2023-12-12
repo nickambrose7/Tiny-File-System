@@ -41,9 +41,10 @@ possible values */
 #define FREE_BLOCK_TYPE 4
 #define FREE_NEXT_BLOCK_OFFSET 2 // offset to get next free block from free block
 
-/* DATA BLCOK DEFINITIONS */
+/* DATA BLOCK DEFINITIONS */
 #define DATA_BLOCK_TYPE 3
 #define DATA_NEXT_BLOCK_OFFSET 2 // offset to get next data block from data block
+#define DATA_BLOCK_DATA_OFFSET 6 // offset to get to data section
 
 
 #define MAX_FILE_NAME_SIZE 9 // include the null terminator
