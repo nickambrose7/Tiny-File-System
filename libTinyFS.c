@@ -598,3 +598,28 @@ int tfs_seek(fileDescriptor FD, int offset){
     
 }
 
+int tfs_readFileInfo(fileDescriptor FD) {
+    if (openFileTable[FD] == NULL) {
+        perror("LIBTINYFS: Error: File is not open. Cannot read file info. (readFileInfo)");
+        return -1; // error
+    }
+    // read in the inode
+    char *inodeData = (char *)malloc(BLOCKSIZE);
+    int success = readBlock(mountedDisk, openFileTable[FD]->inodeNumber, inodeData);
+    if (success < 0) {
+        perror("LIBTINYFS: Error: Invalid pointer to inode block (readFileInfo)");
+        return -1; // error
+    }
+    // get the three time stamps and display them
+    char *created = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+    char *modified = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+    char *accessed = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+    memcpy(created, inodeData + INODE_CR8_TIME_STAMP_OFFSET, TIMESTAMP_BUFFER_SIZE);
+    memcpy(modified, inodeData + INODE_MOD_TIME_STAMP_OFFSET, TIMESTAMP_BUFFER_SIZE);
+    memcpy(accessed, inodeData + INODE_ACC_TIME_STAMP_OFFSET, TIMESTAMP_BUFFER_SIZE);
+    printf("Created: %s\n", created);
+    printf("Modified: %s\n", modified);
+    printf("Accessed: %s\n", accessed);
+    return 1; // success
+}
+
