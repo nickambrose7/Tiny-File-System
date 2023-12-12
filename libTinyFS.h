@@ -31,7 +31,9 @@ possible values */
 #define INODE_FILE_SIZE_OFFSET 6 // offset to get file size from inode block
 #define INODE_DATA_BLOCK_OFFSET 10 // offset to get data block LL pointer from inode block
 #define INODE_FILE_NAME_OFFSET 14 // offset to get file name from inode block
-#define INODE_TIME_STAMP_OFFSET 23 // offset to get time stamp from inode block
+#define INODE_CR8_TIME_STAMP_OFFSET 23
+#define INODE_MOD_TIME_STAMP_OFFSET 48
+#define INODE_ACC_TIME_STAMP_OFFSET 73
 
 
 

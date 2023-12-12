@@ -231,6 +231,19 @@ fileDescriptor tfs_openFile(char *name){
             }
             newEntry->inodeNumber = currentInode; // set inode number
             openFileTable[currentfd] = newEntry; // set the entry
+            // update the time stamps
+            char *timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+            getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+            // zero out the last accessed timestamp
+            memset(inodeData + INODE_ACC_TIME_STAMP_OFFSET, 0, TIMESTAMP_BUFFER_SIZE);
+            // set the last accessed timestamp
+            memcpy(inodeData + INODE_ACC_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+            // write the inode back to disk
+            int writeSuccess = writeBlock(mountedDisk, currentInode, inodeData);
+            if (writeSuccess < 0) {
+                perror("LIBTINYFS: Error: Issue with inode block write when opening file. (openFile)");
+                return -1; // error
+            }
             return currentfd; // return file descriptor
         }
         // clear fileName for the next iteration
@@ -290,7 +303,9 @@ fileDescriptor tfs_openFile(char *name){
     // set time stamp
     char * timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
     getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
-    memcpy(freeBlockData + INODE_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+    memcpy(freeBlockData + INODE_CR8_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+    memcpy(freeBlockData + INODE_MOD_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+    memcpy(freeBlockData + INODE_ACC_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
     // write the super block back to disk
     int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData); 
     if (writeSuccess < 0) {
