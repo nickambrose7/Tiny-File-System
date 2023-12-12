@@ -11,11 +11,34 @@ possible values */
 /* use this name for a default emulated disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk”
 
-#define MAGIC_NUMBER 0x44
+/* GENERAL DEFINITIONS */
 
-#define SUPER_BLOCK 0
-#define FB_OFFSET 2
-#define IB_OFFSET 6
+#define MAGIC_NUMBER 0x44
+#define BLOCK_NUMBER_OFFSET 0
+#define MAGIC_NUMBER_OFFSET 1
+#define TIMESTAMP_BUFFER_SIZE 25
+
+
+/* SUPER BLOCK DEFINITIONS */
+#define SUPER_BLOCK 0 // super block number
+#define FB_OFFSET 2 // offset to get free block LL head from super block
+#define IB_OFFSET 6 // offset to get inode LL head from super block
+
+/* INODE BLOCK DEFINITIONS */
+#define INODE_NEXT_INODE_OFFSET 2 // offset to get next inode in LL
+#define INODE_FILE_SIZE_OFFSET 6 // offset to get file size from inode block
+#define INODE_DATA_BLOCK_OFFSET 10 // offset to get data block LL pointer from inode block
+#define INODE_FILE_NAME_OFFSET 14 // offset to get file name from inode block
+#define INODE_TIME_STAMP_OFFSET 23 // offset to get time stamp from inode block
+
+
+
+/* FREE BLOCK DEFINITIONS */
+#define FREE_NEXT_BLOCK_OFFSET 2 // offset to get next free block from free block
+
+
+#define MAX_FILE_NAME_SIZE 9 // include the null terminator
+
 #define NEXT_INODE_OFFSET 2
 #define FILE_SIZE_OFFSET 6
 #define DATA_EXTENT_OFFSET 10
