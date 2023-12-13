@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "libTinyFS.h"
-#include "libTinyFS.c"
 #include "tinyFS_errno.h"
 
 

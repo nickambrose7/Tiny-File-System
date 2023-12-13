@@ -1,5 +1,5 @@
 #include "libTinyFS.h"
-#include "libDisk.c"
+#include "libDisk.h"
 #include "tinyFS_errno.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,23 +54,23 @@ int tfs_mkfs(char *filename, int nBytes){
 
     int numBlocks = (nBytes / BLOCKSIZE) - 1; 
     if (numBlocks < 3) {
-        printf("LIBTINYFS-mkfs: File system size too small");
+        printf("LIBTINYFS-mkfs: File system size too small\n");
         return ECREATFS; // error
     }
     // check nbytes is in range
     if (nBytes < 0 || nBytes > MAX_BYTES) {
-        printf("LIBTINYFS-mkfs: File system size out of range");
+        printf("LIBTINYFS-mkfs: File system size out of range\n");
         return ECREATFS; // error
     }
     int diskNum = openDisk(filename, nBytes);
     if (diskNum < 0) {
-        printf("LIBTINYFS-mkfs: creating disk in tfs_mkfs");
+        printf("LIBTINYFS-mkfs: creating disk in tfs_mkfs\n");
         return ECREATFS; // error 
     }
     /* Set max number of files constant */
     maxNumberOfFiles = numBlocks / 2; // 2 blocks per file (inode block and data block)
     if (maxNumberOfFiles < 1) {
-        printf("LIBTINYFS-mkfs: File system size too small");
+        printf("LIBTINYFS-mkfs: File system size too small\n");
         return ECREATFS; // error
     }
 
@@ -84,7 +84,7 @@ int tfs_mkfs(char *filename, int nBytes){
     // write the super block to the disk
     int writeSuccess = writeBlock(diskNum, 0, data);
     if (writeSuccess < 0) {
-        printf("LIBTINYFS-mkfs: Error writing super block to disk");
+        printf("LIBTINYFS-mkfs: Error writing super block to disk\n");
         return ECREATFS; // error
     }
     free(data); // deallocate the data buffer
@@ -106,7 +106,7 @@ int tfs_mkfs(char *filename, int nBytes){
         int writeSuccess = writeBlock(diskNum, i, data);
         if (writeSuccess < 0) {
             // print out the block number that failed to write
-            printf("LIBTINYFS-mkfs: Error writing inode block %d to disk", i);
+            printf("LIBTINYFS-mkfs: Error writing inode block %d to disk\n", i);
             return ECREATFS; // error
         }
         free(data); // deallocate the data buffer
@@ -117,7 +117,7 @@ int tfs_mkfs(char *filename, int nBytes){
 int tfs_mount(char *diskname){
     // check if there is already a disk mounted...only one disk can be mounted at a time
     if(mountedDisk != 0) { // do you want to automatically unmount the currently mounted disk or nah?
-        printf("LIBTINYFS-mount: A disk is already mounted, unmount current\ndisk to mount a new disk");
+        printf("LIBTINYFS-mount: A disk is already mounted, unmount current\ndisk to mount a new disk\n");
         return EMOUNTFS; // error 
     }
 
@@ -125,7 +125,7 @@ int tfs_mount(char *diskname){
     mountedDisk = openDisk(diskname, 0);
     if (mountedDisk == -1) {
         mountedDisk = 0; // it failed so we must reset the mountedDisk global
-        printf("LIBTINYFS-mount: Could not open disk");
+        printf("LIBTINYFS-mount: Could not open disk\n");
         return EMOUNTFS; // error 
     }
 
@@ -135,11 +135,11 @@ int tfs_mount(char *diskname){
     int i = 0;
     while(readBlock(mountedDisk, i, data) < 0) {
         if (data[BLOCK_NUMBER_OFFSET] <= 0 || data[BLOCK_NUMBER_OFFSET] > 4) {
-            printf("LIBTINYFS-mount: Invalid block type");
+            printf("LIBTINYFS-mount: Invalid block type\n");
             return EMOUNTFS; // error 
         }
         if (data[MAGIC_NUMBER_OFFSET] != MAGIC_NUMBER) {
-            printf("LIBTINYFS-mount: Invalid magic number");
+            printf("LIBTINYFS-mount: Invalid magic number\n");
             return EMOUNTFS; // error 
         }
     }
@@ -147,7 +147,7 @@ int tfs_mount(char *diskname){
     // allocate open file table
     openFileTable = (openFileTableEntry **)malloc(maxNumberOfFiles * sizeof(openFileTableEntry *));
     if (openFileTable == NULL) {
-        printf("LIBTINYFS-mount: Could not allocate memory for open file table");
+        printf("LIBTINYFS-mount: Could not allocate memory for open file table\n");
         return EMOUNTFS; // error
     }
     // initialize open file table
@@ -163,7 +163,7 @@ int tfs_mount(char *diskname){
 int tfs_unmount(void){
     // is there a disk to unmount?
     if (mountedDisk == 0) {
-        printf("LIBTINYFS-unmount: No disk to unmount");
+        printf("LIBTINYFS-unmount: No disk to unmount\n");
         return EUNMOUNTFS; // error
     }
     // unmount the currently mounted disk
@@ -189,7 +189,7 @@ fileDescriptor tfs_openFile(char *name){
     char *superData = (char *)malloc(BLOCKSIZE);
     int success = readBlock(mountedDisk, SUPER_BLOCK, superData);
     if (success < 0) {
-        printf("LIBTINYFS-openFile: Issue with super block read when opening file");
+        printf("LIBTINYFS-openFile: Issue with super block read when opening file\n");
         return EOPEN; // error
     }
     // get root inode LL head pointer
@@ -203,7 +203,7 @@ fileDescriptor tfs_openFile(char *name){
         // read in the inode
         success = readBlock(mountedDisk, currentInode, inodeData);
         if (success < 0) {
-            printf("LIBTINYFS-openFile: Invalid pointer to inode block");
+            printf("LIBTINYFS-openFile: Invalid pointer to inode block\n");
             return EOPEN; // error
         }
         // get file name
@@ -215,7 +215,7 @@ fileDescriptor tfs_openFile(char *name){
             for (int i = 0; i < maxNumberOfFiles; i++) {
                 if (openFileTable[i] != NULL && openFileTable[i]->inodeNumber == currentInode) {
                     // file is already open
-                    printf("LIBTINYFS-openFile: File is already open");
+                    printf("LIBTINYFS-openFile: File is already open\n");
                     return EOPEN; // error
                 }
             }
@@ -223,7 +223,7 @@ fileDescriptor tfs_openFile(char *name){
             // add to open file table
             openFileTableEntry *newEntry = (openFileTableEntry *)malloc(sizeof(openFileTableEntry));
             if (newEntry == NULL) {
-                printf("LIBTINYFS-openFile: Could not allocate memory for new open file table entry");
+                printf("LIBTINYFS-openFile: Could not allocate memory for new open file table entr\ny");
                 return EOPEN; // error
             }
             newEntry->filePointer = 0; // set file pointer to beginning of file
@@ -243,7 +243,7 @@ fileDescriptor tfs_openFile(char *name){
             // write the inode back to disk
             int writeSuccess = writeBlock(mountedDisk, currentInode, inodeData);
             if (writeSuccess < 0) {
-                printf("LIBTINYFS-openFile: Issue with inode block write when opening file");
+                printf("LIBTINYFS-openFile: Issue with inode block write when opening file\n");
                 return EOPEN; // error
             }
             return currentfd; // return file descriptor
@@ -266,14 +266,14 @@ fileDescriptor tfs_openFile(char *name){
     memcpy(&freeBlockHead, superData + FB_OFFSET, sizeof(int));
     // check if there are any free blocks
     if (freeBlockHead == 0) {
-        printf("LIBTINYFS-openFile: No free blocks");
+        printf("LIBTINYFS-openFile: No free blocks\n");
         return ENOSPC; // error
     }
     // get the first free block
     char *freeBlockData = (char *)malloc(BLOCKSIZE);
     success = readBlock(mountedDisk, freeBlockHead, freeBlockData);
     if (success < 0) {
-        printf("LIBTINYFS-openFile: Invalid pointer to free block");
+        printf("LIBTINYFS-openFile: Invalid pointer to free block\n");
         return EOPEN; // error
     }
 
@@ -311,19 +311,19 @@ fileDescriptor tfs_openFile(char *name){
     // write the super block back to disk
     int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData); 
     if (writeSuccess < 0) {
-        printf("LIBTINYFS-openFile: Issue with super block write when opening file");
+        printf("LIBTINYFS-openFile: Issue with super block write when opening file\n");
         return EOPEN; // error
     }
     // write the inode block back to disk
     writeSuccess = writeBlock(mountedDisk, newInodeBlockNum, freeBlockData);
     if (writeSuccess < 0) {
-        printf("LIBTINYFS-openFile: Issue with inode block write when opening file");
+        printf("LIBTINYFS-openFile: Issue with inode block write when opening file\n");
         return EOPEN; // error
     }
     // add to open file table
     openFileTableEntry *newEntry = (openFileTableEntry *)malloc(sizeof(openFileTableEntry));
     if (newEntry == NULL) {
-        printf("LIBTINYFS-openFile: Could not allocate memory for new open file table entry");
+        printf("LIBTINYFS-openFile: Could not allocate memory for new open file table entry\n");
         return EOPEN; // error
     }
     newEntry->filePointer = 0; // set file pointer to beginning of file
@@ -346,17 +346,17 @@ fileDescriptor tfs_openFile(char *name){
 int tfs_closeFile(fileDescriptor FD) {
     // check if FD is valid
     if (openFileTable[FD] == NULL) {
-        printf("LIBTINYFS-closeFile: Invalid file descriptor. Cannot close file");
+        printf("LIBTINYFS-closeFile: Invalid file descriptor. Cannot close file\n");
         return EBADFD; // error
     }
     // check if there is a disk mounted
     if (mountedDisk == 0) {
-        printf("LIBTINYFS-closeFile: No disk mounted. Cannot close file");
+        printf("LIBTINYFS-closeFile: No disk mounted. Cannot close file\n");
         return ECLOSE; // error
     }
     // check if file descriptor is valid
     if (FD < 0 || FD >= maxNumberOfFiles) {
-        printf("LIBTINYFS-closeFile: Invalid file descriptor. Cannot close file");
+        printf("LIBTINYFS-closeFile: Invalid file descriptor. Cannot close file\n");
         return EBADFD; // error
     }
     // free the open file table entry
@@ -373,7 +373,7 @@ int deallocateBlock(int blockNum) {
     char *data = (char *)malloc(BLOCKSIZE);
     int success = readBlock(mountedDisk, blockNum, data);
     if (success < 0) {
-        printf("LIBTINYFS-deallocateBlock: Invalid pointer to block");
+        printf("LIBTINYFS-deallocateBlock: Invalid pointer to block\n");
         return EDEALLOC; // error
     }
     // zero out the data buffer
@@ -385,7 +385,7 @@ int deallocateBlock(int blockNum) {
     char *superData = (char *)malloc(BLOCKSIZE);
     success = readBlock(mountedDisk, SUPER_BLOCK, superData);
     if (success < 0) {
-        printf("LIBTINYFS-deallocateBlock: Issue with super block read when deallocating block");
+        printf("LIBTINYFS-deallocateBlock: Issue with super block read when deallocating block\n");
         return EDEALLOC; // error
     }
     // get the free block LL head pointer
@@ -398,13 +398,13 @@ int deallocateBlock(int blockNum) {
     // write the super block back to disk
     int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData);
     if (writeSuccess < 0) {
-        printf("LIBTINYFS-deallocateBlock: Issue with super block write when deallocating block");
+        printf("LIBTINYFS-deallocateBlock: Issue with super block write when deallocating block\n");
         return EDEALLOC; // error
     }
     // write the free block back to disk
     writeSuccess = writeBlock(mountedDisk, blockNum, data);
     if (writeSuccess < 0) {
-        printf("LIBTINYFS-deallocateBlock: Issue with free block write when deallocating block");
+        printf("LIBTINYFS-deallocateBlock: Issue with free block write when deallocating block\n");
         return EDEALLOC; // error
     }
     return 1; // success
@@ -412,14 +412,14 @@ int deallocateBlock(int blockNum) {
 
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     if (mountedDisk == INT_NULL) {
-        printf("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)");
+        printf("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)\n");
         return EMOUNTFS; // error
     }
 
     // check if FD is in OFT
     openFileTableEntry *oftEntry = openFileTable[FD];
     if (oftEntry == NULL) {
-        printf("LIBTINYFS: Error: File has not been opened. (writeFile)");
+        printf("LIBTINYFS: Error: File has not been opened. (writeFile)\n");
         return EBADFD; // error
     }
     int fileInode = oftEntry->inodeNumber;
@@ -430,7 +430,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
 
     if (success < 0) {
         free(superData);
-        printf("LIBTINYFS: Error: Issue with super block read. (writeFile)");
+        printf("LIBTINYFS: Error: Issue with super block read. (writeFile)\n");
         return EFREAD; // error
     }
 
@@ -440,7 +440,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     if (success < 0) {
         free(superData);
         free(inodeData);
-        printf("LIBTINYFS: Error: Issue with inode read. (writeFile)");
+        printf("LIBTINYFS: Error: Issue with inode read. (writeFile)\n");
         return EFREAD; // error
     }
     
@@ -466,7 +466,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             if (success < 0) {
                 free(inodeData);
                 free(superData);
-                printf("LIBTINYFS: Error: Data block could not be read. (writeFile)");
+                printf("LIBTINYFS: Error: Data block could not be read. (writeFile)\n");
                 return EFREAD; // error
             }
             
@@ -479,7 +479,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             if (success < 0) {
                 free(inodeData);
                 free(superData);
-                printf("LIBTINYFS: Error: Could not deallocate data block. (writeFile)");
+                printf("LIBTINYFS: Error: Could not deallocate data block. (writeFile)\n");
                 return EDEALLOC; // error
             }
 
@@ -504,7 +504,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             free(inodeData);
             free(superData);
             free(freeBuffer);
-            perror("LIBTINYFS: Error: Free block could not be read. (writeFile)");
+            perror("LIBTINYFS: Error: Free block could not be read. (writeFile)\n");
             return EFREAD; // error
         }
 
@@ -523,7 +523,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             free(inodeData);
             free(superData);
             free(freeBuffer);
-            perror("LIBTINYFS: Error: Free block could not be written to. (writeFile)");
+            perror("LIBTINYFS: Error: Free block could not be written to. (writeFile)\n");
             return EFWRITE; // error
         }
 
@@ -558,7 +558,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         free(inodeData);
         free(superData);
         free(freeBuffer);
-        perror("LIBTINYFS: Error: Inode block could not be updated. (writeFile)");
+        perror("LIBTINYFS: Error: Inode block could not be updated. (writeFile)\n");
         return EFWRITE; // error
     }
 
@@ -571,7 +571,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
 
     // error if incomplete write
     if (blocksNeeded > 0) {
-        printf("LIBTINYFS: Error: No free blocks. Incomplete write (writeFile)");
+        printf("LIBTINYFS: Error: No free blocks. Incomplete write (writeFile)\n");
         return EFWRITE; // error
     }
 
@@ -584,7 +584,7 @@ int tfs_deleteFile(fileDescriptor FD) {
     // add all of the above blocks to the free block linked list- make a function for this prob
     // remove the file from the open file table
     if (openFileTable[FD] == NULL) {
-        printf("LIBTINYFS-deleteFile: invalid FD. Cannot delete file");
+        printf("LIBTINYFS-deleteFile: invalid FD. Cannot delete file\n");
         return EBADFD; // error
     }
     int inodeToDelete = openFileTable[FD]->inodeNumber;
@@ -592,7 +592,7 @@ int tfs_deleteFile(fileDescriptor FD) {
     char *superData = (char *)malloc(BLOCKSIZE);
     int success = readBlock(mountedDisk, SUPER_BLOCK, superData);   
     if (success < 0) {
-        printf("LIBTINYFS-deleteFile: Issue with super block read when deleting file");
+        printf("LIBTINYFS-deleteFile: Issue with super block read when deleting file\n");
         return EDELETE; // error
     }
     // get root inode LL head pointer
@@ -601,7 +601,7 @@ int tfs_deleteFile(fileDescriptor FD) {
     memcpy(&curInode, superData + IB_OFFSET, sizeof(int));
     success = readBlock(mountedDisk, curInode, curInodeData);
     if (success < 0) {
-        printf("LIBTINYFS-deleteFile: Invalid pointer to inode block ");
+        printf("LIBTINYFS-deleteFile: Invalid pointer to inode block\n");
         return EDELETE; // error
     }
     // check if inode to delete is the head of the inode LL
@@ -612,7 +612,7 @@ int tfs_deleteFile(fileDescriptor FD) {
         // write the super block back to disk
         int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData); 
         if (writeSuccess < 0) {
-            printf("LIBTINYFS-deleteFile: Issue with super block write when deleting file. ");
+            printf("LIBTINYFS-deleteFile: Issue with super block write when deleting file\n");
             return EDELETE; // error
         }
     }
@@ -624,7 +624,7 @@ int tfs_deleteFile(fileDescriptor FD) {
             // read in the next inode
             success = readBlock(mountedDisk, nextInode, curInodeData);
             if (success < 0) {
-                printf("LIBTINYFS-deleteFile: Invalid pointer to inode block ");
+                printf("LIBTINYFS-deleteFile: Invalid pointer to inode block\n");
                 return EDELETE; // error
             }
             curInode = nextInode;
@@ -635,7 +635,7 @@ int tfs_deleteFile(fileDescriptor FD) {
         // read in the next inode data
         success = readBlock(mountedDisk, nextInode, nextInodeData);
         if (success < 0) {
-            printf("LIBTINYFS-deleteFile: Invalid pointer to inode block");
+            printf("LIBTINYFS-deleteFile: Invalid pointer to inode block\n");
             return EDELETE; // error
         }
         // now we have the inode before the inode to delete
@@ -646,7 +646,7 @@ int tfs_deleteFile(fileDescriptor FD) {
         // write the inode before the inode to delete back to disk
         int writeSuccess = writeBlock(mountedDisk, curInode, curInodeData);
         if (writeSuccess < 0) {
-            printf("LIBTINYFS-deleteFile: Issue with inode block write when deleting file");
+            printf("LIBTINYFS-deleteFile: Issue with inode block write when deleting file\n");
             return EDELETE; // error
         }
         free(nextInodeData);
@@ -655,7 +655,7 @@ int tfs_deleteFile(fileDescriptor FD) {
     // read in the inode data
     success = readBlock(mountedDisk, inodeToDelete, curInodeData);
     if (success < 0) {
-        printf("LIBTINYFS-deleteFile: Invalid pointer to inode block");
+        printf("LIBTINYFS-deleteFile: Invalid pointer to inode block\n");
         return EDELETE; // error
     }
     // get the data block pointer
@@ -667,7 +667,7 @@ int tfs_deleteFile(fileDescriptor FD) {
         while (1) {
             success = readBlock(mountedDisk, dataBlockPointer, dataBlock);
             if (success < 0) {
-                printf("LIBTINYFS-deleteFile: Invalid pointer to data block");
+                printf("LIBTINYFS-deleteFile: Invalid pointer to data block\n");
                 return EDELETE; // error
             }
             // get the next data block pointer
@@ -694,14 +694,14 @@ int tfs_deleteFile(fileDescriptor FD) {
 
 int tfs_seek(fileDescriptor FD, int offset){
     if (mountedDisk == INT_NULL) {
-        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (seek)");
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (seek)\n");
         return EMOUNTFS; // error
     }
 
     // check if FD is in OFT
     openFileTableEntry *oftEntry = openFileTable[FD];
     if (oftEntry == NULL) {
-        perror("LIBTINYFS: Error: File has not been opened. (seek)");
+        perror("LIBTINYFS: Error: File has not been opened. (seek)\n");
         return EBADFD; // error
     }
 
@@ -713,14 +713,14 @@ int tfs_seek(fileDescriptor FD, int offset){
 
 int tfs_readByte(fileDescriptor FD, char *buffer){
     if (mountedDisk == INT_NULL) {
-        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (readByte)");
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (readByte)\n");
         return EMOUNTFS; // error
     }
 
     // check if FD is in OFT
     openFileTableEntry *oftEntry = openFileTable[FD];
     if (oftEntry == NULL) {
-        perror("LIBTINYFS: Error: File has not been opened. (readByte)");
+        perror("LIBTINYFS: Error: File has not been opened. (readByte)\n");
         return EBADFD; // error
     }
     int fileInode = oftEntry->inodeNumber;
@@ -732,7 +732,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
 
     if (success < 0) {
         free(superData);
-        perror("LIBTINYFS: Error: Issue with super block read. (readByte)");
+        perror("LIBTINYFS: Error: Issue with super block read. (readByte)\n");
         return EFREAD; // error
     }
 
@@ -742,7 +742,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     if (success < 0) {
         free(superData);
         free(inodeData);
-        perror("LIBTINYFS: Error: Issue with inode read. (readByte)");
+        perror("LIBTINYFS: Error: Issue with inode read. (readByte)\n");
         return EFREAD; // error
     }
     
@@ -755,7 +755,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     if (filePointer >= currentFileSize) {
         free(superData);
         free(inodeData);
-        perror("LIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)");
+        perror("LIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)\n");
         return EBREAD; // error
     }
 
@@ -769,7 +769,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
             free(superData);
             free(inodeData);
             free(blockData);
-            perror("LIBTINYFS: Error: Issue with data read. (readByte)");
+            perror("LIBTINYFS: Error: Issue with data read. (readByte)\n");
             return EFREAD; // error
         }
 
@@ -794,7 +794,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
         free(inodeData);
         free(superData);
         free(blockData);
-        perror("LIBTINYFS: Error: Inode block could not be updated. (readByte)");
+        perror("LIBTINYFS: Error: Inode block could not be updated. (readByte)\n");
         return EFWRITE; // error
     }
 
@@ -808,14 +808,14 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
 
 int tfs_readFileInfo(fileDescriptor FD) {
     if (openFileTable[FD] == NULL) {
-        printf("LIBTINYFS-readFileInfo: File is not open. Cannot read file info");
+        printf("LIBTINYFS-readFileInfo: File is not open. Cannot read file info\n");
         return EOPEN; // error
     }
     // read in the inode
     char *inodeData = (char *)malloc(BLOCKSIZE);
     int success = readBlock(mountedDisk, openFileTable[FD]->inodeNumber, inodeData);
     if (success < 0) {
-        printf("LIBTINYFS-readFileInfo: Invalid pointer to inode block");
+        printf("LIBTINYFS-readFileInfo: Invalid pointer to inode block\n");
         return EFREAD; // error
     }
     // get the three time stamps and display them
@@ -836,7 +836,7 @@ int tfs_readFileInfo(fileDescriptor FD) {
 
 int tfs_readdir() {
     if (mountedDisk == INT_NULL) {
-        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (readdir)");
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (readdir)\n");
         return EMOUNTFS; // error
     }
 
@@ -846,7 +846,7 @@ int tfs_readdir() {
 
     if (success < 0) {
         free(superData);
-        perror("LIBTINYFS: Error: Issue with super block read. (readdir)");
+        perror("LIBTINYFS: Error: Issue with super block read. (readdir)\n");
         return EFREAD; // error
     }
 
@@ -861,7 +861,7 @@ int tfs_readdir() {
         if (success < 0) {
             free(superData);
             free(inodeData);
-            perror("LIBTINYFS: Error: Issue with inode block read. (readdir)");
+            perror("LIBTINYFS: Error: Issue with inode block read. (readdir)\n");
             return EFREAD; // error
         }
 
@@ -878,19 +878,19 @@ int tfs_readdir() {
 
 int tfs_rename(fileDescriptor FD, char* newName) {
     if (strlen(newName) >= MAX_FILE_NAME_SIZE) {
-        perror("LIBTINYFS: Error: File name is too long, cannot be supported. (rename)");
+        perror("LIBTINYFS: Error: File name is too long, cannot be supported. (rename)\n");
         return ERENAME; // error
     }
 
     if (mountedDisk == INT_NULL) {
-        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (rename)");
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (rename)\n");
         return EMOUNTFS; // error
     }
 
     // check if FD is in OFT
     openFileTableEntry *oftEntry = openFileTable[FD];
     if (oftEntry == NULL) {
-        perror("LIBTINYFS: Error: File has not been opened. (rename)");
+        perror("LIBTINYFS: Error: File has not been opened. (rename)\n");
         return EBADFD; // error
     }
     int fileInode = oftEntry->inodeNumber;
@@ -900,9 +900,12 @@ int tfs_rename(fileDescriptor FD, char* newName) {
     int success = readBlock(mountedDisk, fileInode, inodeData);
     if (success < 0) {
         free(inodeData);
-        perror("LIBTINYFS: Error: Issue with inode block read. (rename)");
+        perror("LIBTINYFS: Error: Issue with inode block read. (rename)\n");
         return EFREAD; // error
     }
+
+    // zero out the current file name
+    memset(inodeData + INODE_FILE_NAME_OFFSET, 0, MAX_FILE_NAME_SIZE*sizeof(char));
 
     // MODIFY INODE BLOCK DATA
     // change name
@@ -918,7 +921,7 @@ int tfs_rename(fileDescriptor FD, char* newName) {
     success = writeBlock(mountedDisk, fileInode, inodeData);
     if (success < 0) {
         free(inodeData);
-        perror("LIBTINYFS: Error: Issue with inode block write. (rename)");
+        perror("LIBTINYFS: Error: Issue with inode block write. (rename)\n");
         return EFREAD; // error
     }
     free(inodeData);

@@ -6,9 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tinyFS.h"
+//#include "tinyFS.h"
 #include "libTinyFS.h"
-#include "TinyFS_errno.h"
+#include "tinyFS_errno.h"
+/* use this name for a default emulated disk file name */
+#define DEFAULT_DISK_NAME "tinyFSDisk"
 
 /* Simple helper function to fill Buffer with as many inPhrase strings as possible before reaching size */
 int fillBufferWithPhrase(char *inPhrase, char *Buffer, int size) {
