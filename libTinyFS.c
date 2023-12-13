@@ -572,6 +572,8 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         return EFWRITE; // error
     }
 
+    oftEntry->filePointer = BEGINNING_OF_FILE;
+
     // free memory
     free(inodeData);
     free(superData);
@@ -713,9 +715,10 @@ int tfs_seek(fileDescriptor FD, int offset){
         return EBADFD; // error
     }
 
-    oftEntry->filePointer = oftEntry->filePointer + offset;
+    int fp = oftEntry->filePointer + offset;
+    oftEntry->filePointer = fp;
 
-    return 1; // success
+    return fp; // success, returns new file pointer
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer){

@@ -54,6 +54,7 @@ possible values */
 #define FILE_SIZE_OFFSET 6
 #define DATA_EXTENT_OFFSET 10
 #define INT_NULL 0
+#define BEGINNING_OF_FILE 0
 
 #define MAX_BYTES 2147483647
 
