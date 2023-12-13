@@ -530,7 +530,8 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         blocksNeeded--;
 
         if (blocksNeeded == 0) { // null next block for tail of data extent
-            memcpy(freeBuffer + DATA_NEXT_BLOCK_OFFSET, INT_NULL, sizeof(int));
+            int zero = 0;
+            memcpy(freeBuffer + DATA_NEXT_BLOCK_OFFSET, &zero, sizeof(int));
         }
 
         // write to block
@@ -751,16 +752,6 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     }
     int fileInode = oftEntry->inodeNumber;
     int filePointer = oftEntry->filePointer;
-
-    // read super block
-    char *superData = (char *)malloc(BLOCKSIZE*sizeof(char));
-    int success = readBlock(mountedDisk, SUPER_BLOCK, superData);
-
-    if (success < 0) {
-        free(superData);
-        perror("LIBTINYFS: Error: Issue with super block read. (readByte)\n");
-        return EFREAD; // error
-    }
 
     // if file open
     char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char)); // the block data of the file's inode
