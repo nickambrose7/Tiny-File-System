@@ -25,14 +25,14 @@ int openDisk(char *filename, int nBytes) {
         // File should already exist, open it
         FILE *fp = fopen(filename, "r+");
         if (fp == NULL) {
-            perror("LIBDISK: File did not exist, it should have!");
+            printf("LIBDISK: File did not exist, it should have!\n");
             return -1;
         }
         // get file size
         fseek(fp, 0, SEEK_END);
         int fileSize = ftell(fp);
         if (fileSize % BLOCKSIZE != 0) {
-            perror("LIBDISK: File size is not a multiple of BLOCKSIZE");
+            printf("LIBDISK: File size is not a multiple of BLOCKSIZE\n");
             return -1;
         }
         // return position to the beginning
@@ -40,13 +40,13 @@ int openDisk(char *filename, int nBytes) {
         // add disk to disk list
         Disk *newDisk = malloc(sizeof(Disk));
         if (newDisk == NULL) {
-            perror("LIBDISK: Error allocating memory for new disk");
+            printf("LIBDISK: Error allocating memory for new disk\n");
             return -1;
         }
         newDisk->diskNumber = diskCounter++;
         char *filenameCopy = malloc(strlen(filename) + 1);
         if (filenameCopy == NULL) {
-            perror("LIBDISK: Error allocating memory for filename");
+            printf("LIBDISK: Error allocating memory for filename\n");
             return -1;
         }
         strcpy(filenameCopy, filename);
@@ -68,7 +68,7 @@ int openDisk(char *filename, int nBytes) {
         // create file
         FILE *fp = fopen(filename, "w"); // will truncate file to 0 if it exists
         if (fp == NULL) {
-            perror("LIBDISK: Error opening file");
+            printf("LIBDISK: Error opening file\n");
             return -1;
         }
         // write nBytes of 0s to file
@@ -79,13 +79,13 @@ int openDisk(char *filename, int nBytes) {
         // add disk to disk list
         Disk *newDisk = malloc(sizeof(Disk));
         if (newDisk == NULL) {
-            perror("LIBDISK: Error allocating memory for new disk");
+            printf("LIBDISK: Error allocating memory for new disk\n");
             return -1;
         }
         newDisk->diskNumber = diskCounter++;
         char *filenameCopy = malloc(strlen(filename) + 1);
         if (filenameCopy == NULL) {
-            perror("LIBDISK: Error allocating memory for filename");
+            printf("LIBDISK: Error allocating memory for filename\n");
             return -1;
         }
         strcpy(filenameCopy, filename);
@@ -110,7 +110,7 @@ int closeDisk(int disk) {
             // found disk
             // close file
             if (fclose(currentDisk->filePointer) != 0) {
-                perror("LIBDISK: Error closing file");
+                printf("LIBDISK: Error closing file\n");
                 return -1;
             }
             // remove disk from disk list
@@ -156,12 +156,12 @@ int readBlock(int disk, int bNum, void *block) {
             FILE *fp = currentDisk->filePointer;
             // seek to correct position, use SEEK_SET to seek from beginning of file
             if (fseek(fp, bNum * BLOCKSIZE, SEEK_SET) != 0) {
-                perror("LIBDISK: Error seeking to position");
+                printf("LIBDISK: Error seeking to position\n");
                 return -1;
             }
             // read block
             if (fread(block, sizeof(char), BLOCKSIZE, fp) != BLOCKSIZE) {
-                perror("LIBDISK: Error reading block");
+                printf("LIBDISK: Error reading block\n");
                 return -1;
             }
             return 0;
@@ -193,12 +193,12 @@ int writeBlock(int disk, int bNum, void *block) {
             FILE *fp = currentDisk->filePointer;
             // seek to correct position
             if (fseek(fp, bNum * BLOCKSIZE, SEEK_SET) != 0) {
-                perror("LIBDISK: Error seeking to position");
+                printf("LIBDISK: Error seeking to position\n");
                 return -1;
             }
             // write block
             if (fwrite(block, sizeof(char), BLOCKSIZE, fp) != BLOCKSIZE) {
-                perror("LIBDISK: Error writing block");
+                printf("LIBDISK: Error writing block\n");
                 return -1;
             }
             return 0;
