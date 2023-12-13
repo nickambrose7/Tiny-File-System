@@ -39,5 +39,7 @@ you might want to catch and report
 #define EBREAD -13
 // file seek error
 #define EFSEEK -14
+// file rename error
+#define ERENAME -15
 
 #endif

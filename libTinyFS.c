@@ -551,7 +551,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     char * timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
     getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
     memcpy(inodeData + INODE_MOD_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
-
+    free(timeStampBuffer);
     // write the updated inode block
     success = writeBlock(mountedDisk, fileInode, inodeData);
     if (success < 0) {
@@ -784,7 +784,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     char * timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
     getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
     memcpy(inodeData + INODE_ACC_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
-
+    free(timeStampBuffer);
     // write the updated inode block
     success = writeBlock(mountedDisk, fileInode, inodeData);
     if (success < 0) {
@@ -825,5 +825,101 @@ int tfs_readFileInfo(fileDescriptor FD) {
     printf("Created: %s\n", created);
     printf("Modified: %s\n", modified);
     printf("Accessed: %s\n", accessed);
+    free(created);
+    free(modified);
+    free(accessed);
     return 1; // success
+}
+
+int tfs_readdir() {
+    if (mountedDisk == INT_NULL) {
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (readdir)");
+        return EMOUNTFS; // error
+    }
+
+    // read super block
+    char *superData = (char *)malloc(BLOCKSIZE*sizeof(char));
+    int success = readBlock(mountedDisk, SUPER_BLOCK, superData);
+
+    if (success < 0) {
+        free(superData);
+        perror("LIBTINYFS: Error: Issue with super block read. (readdir)");
+        return EFREAD; // error
+    }
+
+    // get inode head
+    int inodeHead;
+    memcpy(&inodeHead, superData, sizeof(int));
+
+    printf("FILE SYSTEM:\n root:\n");
+    char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
+    while (inodeHead != INT_NULL) { // make this a recursive function for hierarchical
+        success = readBlock(mountedDisk, inodeHead, inodeData);
+        if (success < 0) {
+            free(superData);
+            free(inodeData);
+            perror("LIBTINYFS: Error: Issue with inode block read. (readdir)");
+            return EFREAD; // error
+        }
+
+        char *fileName = (char *)malloc(MAX_FILE_NAME_SIZE*sizeof(char));
+        memcpy(fileName, inodeData + INODE_FILE_NAME_OFFSET, MAX_FILE_NAME_SIZE*sizeof(char));
+
+        printf("%s\n", fileName);
+
+        memcpy(&inodeHead, inodeData + INODE_NEXT_INODE_OFFSET, sizeof(int));
+    }
+
+    return 1; // success
+}
+
+int tfs_rename(fileDescriptor FD, char* newName) {
+    if (strlen(newName) >= MAX_FILE_NAME_SIZE) {
+        perror("LIBTINYFS: Error: File name is too long, cannot be supported. (rename)");
+        return ERENAME; // error
+    }
+
+    if (mountedDisk == INT_NULL) {
+        perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (rename)");
+        return EMOUNTFS; // error
+    }
+
+    // check if FD is in OFT
+    openFileTableEntry *oftEntry = openFileTable[FD];
+    if (oftEntry == NULL) {
+        perror("LIBTINYFS: Error: File has not been opened. (rename)");
+        return EBADFD; // error
+    }
+    int fileInode = oftEntry->inodeNumber;
+
+    // get the inode block
+    char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
+    int success = readBlock(mountedDisk, fileInode, inodeData);
+    if (success < 0) {
+        free(inodeData);
+        perror("LIBTINYFS: Error: Issue with inode block read. (rename)");
+        return EFREAD; // error
+    }
+
+    // MODIFY INODE BLOCK DATA
+    // change name
+    memcpy(inodeData + INODE_FILE_NAME_OFFSET, newName, strlen(newName)*sizeof(char)); 
+
+    // get current time to modify timestamp
+    char *timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+    getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+    memcpy(inodeData + INODE_MOD_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+    free(timeStampBuffer);
+
+    // write updated inode block
+    success = writeBlock(mountedDisk, fileInode, inodeData);
+    if (success < 0) {
+        free(inodeData);
+        perror("LIBTINYFS: Error: Issue with inode block write. (rename)");
+        return EFREAD; // error
+    }
+    free(inodeData);
+
+    return 1; // success
+
 }

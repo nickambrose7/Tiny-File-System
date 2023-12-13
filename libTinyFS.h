@@ -26,7 +26,7 @@ possible values */
 #define IB_OFFSET 6 // offset to get inode LL head from super block
 
 /* INODE BLOCK DEFINITIONS */
-#define INODE_BLOCK_TYPE 1
+#define INODE_BLOCK_TYPE 2
 #define INODE_NEXT_INODE_OFFSET 2 // offset to get next inode in LL
 #define INODE_FILE_SIZE_OFFSET 6 // offset to get file size from inode block
 #define INODE_DATA_BLOCK_OFFSET 10 // offset to get data block LL pointer from inode block
