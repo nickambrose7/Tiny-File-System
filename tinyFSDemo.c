@@ -79,17 +79,18 @@ int main() {
     printf("Finished inital mounting phase\n");
 
     fd1 = tfs_openFile("file1");
-    fd2 = tfs_openFile("file2");
-    fd3 = tfs_openFile("file3");
-    fd4 = tfs_openFile("file4");
-    printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
-
+    // fd2 = tfs_openFile("file2");
+    // fd3 = tfs_openFile("file3");
+    // fd4 = tfs_openFile("file4");
+    // printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+    printf("file descriptor 1: %d\n", fd1);
     
     // write to file 1
     printf("\nWriting to file1\n");
     if (tfs_writeFile(fd1, "Hello World!", strlen("Hello World!")) < 0) {
         return -1;
     }
+    return 1;
     printf("Theoretically, wrote 'Hello World!'\n");
 
         printf("Current Working Directory:\n");
