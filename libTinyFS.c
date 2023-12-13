@@ -295,7 +295,7 @@ fileDescriptor tfs_openFile(char *name){
     memcpy(superData + FB_OFFSET, &nextFreeBlock, sizeof(int));
     // turn the free block into an inode block
     int newInodeBlockNum = freeBlockHead;
-    freeBlockData[BLOCK_NUMBER_OFFSET] = 2; // block type -> inode block
+    freeBlockData[BLOCK_NUMBER_OFFSET] = INODE_BLOCK_TYPE; // block type -> inode block
     freeBlockData[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
     // set the next inode pointer
     // get the next inode block from the super block
@@ -502,7 +502,6 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     // get free block head which is a block number
     int freeBlock;
     memcpy(&freeBlock, superData + FB_OFFSET, sizeof(int));
-
     int dataExtentHead = freeBlock;
 
     // write to free blocks
@@ -520,12 +519,10 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
 
         // edit block buffer
         freeBuffer[BLOCK_NUMBER_OFFSET] = DATA_BLOCK_TYPE; // change type to a data extent block
-
         int writeBufferSize = (size >= USEABLE_DATA_SIZE ? USEABLE_DATA_SIZE : size)*sizeof(char);
         memcpy(freeBuffer + DATA_BLOCK_DATA_OFFSET, buffer + bufferPointer, writeBufferSize); // copy the spliced buffer into the block data
         bufferPointer = bufferPointer + writeBufferSize;
-        remainingBytes = remainingBytes - writeBufferSize; 
-
+        remainingBytes = remainingBytes - writeBufferSize;
         // decrement blocks needed after writing
         blocksNeeded--;
 
@@ -770,14 +767,23 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
 
     if (filePointer >= currentFileSize) {
         free(inodeData);
-        printf("LIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)\n");
+        printf("\nLIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)\n");
         return EBREAD; // error
     }
 
     int blockNumber = filePointer / USEABLE_DATA_SIZE; // which block to seek to
     int byteNumber = filePointer % USEABLE_DATA_SIZE; // which byte to seek to in blockNumber
 
+    // printf("Block Num: %d, Byte Num:%d\n", blockNumber, byteNumber);
+
     char *blockData = (char *)malloc(BLOCKSIZE*sizeof(char));
+    success = readBlock(mountedDisk, dataBlock, blockData);
+    if (success < 0) {
+        free(inodeData);
+        free(blockData);
+        printf("LIBTINYFS: Error: Issue with data read. (readByte)\n");
+        return EFREAD; // error
+    }
     while (blockNumber != 0) {
         success = readBlock(mountedDisk, dataBlock, blockData);
         if (success < 0) {
@@ -791,7 +797,6 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
 
         blockNumber--; // decrement block number
     }
-
     memcpy(buffer, blockData + DATA_BLOCK_DATA_OFFSET + byteNumber, sizeof(char)); // get byte of data at byteNumbe in blockNumber 
 
     tfs_seek(FD, 1); // increment pointer
@@ -864,9 +869,9 @@ int tfs_readdir() {
 
     // get inode head
     int inodeHead;
-    memcpy(&inodeHead, superData, sizeof(int));
+    memcpy(&inodeHead, superData + IB_OFFSET, sizeof(int));
 
-    printf("FILE SYSTEM:\n root:\n");
+    printf("FILE SYSTEM:\nroot:\n");
     char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
     while (inodeHead != INT_NULL) { // make this a recursive function for hierarchical
         success = readBlock(mountedDisk, inodeHead, inodeData);
