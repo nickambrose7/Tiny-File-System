@@ -205,71 +205,73 @@ fileDescriptor tfs_openFile(char *name){
     // get root inode LL head pointer
     int inodeHead;
     memcpy(&inodeHead, superData + IB_OFFSET, sizeof(int));
-    // read each inode in the linked list looking for a file name that matches ours
-    int currentInode = inodeHead;
-    char *inodeData = (char *)malloc(BLOCKSIZE);
-    char fileName[MAX_FILE_NAME_SIZE];
-    while (1) {
-        // read in the inode
-        success = readBlock(mountedDisk, currentInode, inodeData);
-        if (success < 0) {
-            printf("LIBTINYFS-openFile: Invalid pointer to inode block\n");
-            return EOPEN; // error
-        }
-        // get file name
-        memcpy(fileName, inodeData + INODE_FILE_NAME_OFFSET, MAX_FILE_NAME_SIZE*sizeof(char));
-        // check if file name matches
-        if (strcmp(fileName, name) == 0) {
-            // found the file
-            // check if file is already open
-            for (int i = 0; i < maxNumberOfFiles; i++) {
-                if (openFileTable[i] != NULL && openFileTable[i]->inodeNumber == currentInode) {
-                    // file is already open
-                    printf("LIBTINYFS-openFile: File is already open\n");
+    // read each inode in the linked list looking for a file name that matches ours]
+    if (inodeHead != 0) { // there exists an inode to check
+        int currentInode = inodeHead;
+        char *inodeData = (char *)malloc(BLOCKSIZE);
+        char fileName[MAX_FILE_NAME_SIZE];
+        while (1) {
+            // read in the inode
+            success = readBlock(mountedDisk, currentInode, inodeData);
+            if (success < 0) {
+                printf("LIBTINYFS-openFile: Invalid pointer to inode block\n");
+                return EOPEN; // error
+            }
+            // get file name
+            memcpy(fileName, inodeData + INODE_FILE_NAME_OFFSET, MAX_FILE_NAME_SIZE*sizeof(char));
+            // check if file name matches
+            if (strcmp(fileName, name) == 0) {
+                // found the file
+                // check if file is already open
+                for (int i = 0; i < maxNumberOfFiles; i++) {
+                    if (openFileTable[i] != NULL && openFileTable[i]->inodeNumber == currentInode) {
+                        // file is already open
+                        printf("LIBTINYFS-openFile: File is already open\n");
+                        return EOPEN; // error
+                    }
+                }
+                // file is not already open
+                // add to open file table
+                openFileTableEntry *newEntry = (openFileTableEntry *)malloc(sizeof(openFileTableEntry));
+                if (newEntry == NULL) {
+                    printf("LIBTINYFS-openFile: Could not allocate memory for new open file table entr\ny");
                     return EOPEN; // error
                 }
+                newEntry->filePointer = 0; // set file pointer to beginning of file
+                int currentfd = 0;
+                while (openFileTable[currentfd] != NULL) {  // find the next empty spot in the open file table
+                    currentfd++;
+                }
+                newEntry->inodeNumber = currentInode; // set inode number
+                openFileTable[currentfd] = newEntry; // set the entry
+                // update the time stamps
+                char *timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+                getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+                // zero out the last accessed timestamp
+                memset(inodeData + INODE_ACC_TIME_STAMP_OFFSET, 0, TIMESTAMP_BUFFER_SIZE);
+                // set the last accessed timestamp
+                memcpy(inodeData + INODE_ACC_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
+                // write the inode back to disk
+                int writeSuccess = writeBlock(mountedDisk, currentInode, inodeData);
+                if (writeSuccess < 0) {
+                    printf("LIBTINYFS-openFile: Issue with inode block write when opening file\n");
+                    return EOPEN; // error
+                }
+                return currentfd; // return file descriptor
             }
-            // file is not already open
-            // add to open file table
-            openFileTableEntry *newEntry = (openFileTableEntry *)malloc(sizeof(openFileTableEntry));
-            if (newEntry == NULL) {
-                printf("LIBTINYFS-openFile: Could not allocate memory for new open file table entr\ny");
-                return EOPEN; // error
+            // clear fileName for the next iteration
+            memset(fileName, 0, MAX_FILE_NAME_SIZE*sizeof(char));
+            if (inodeData[INODE_NEXT_INODE_OFFSET] == 0) {
+                // no more inodes to check, need this pointer to our last inode
+                break;
             }
-            newEntry->filePointer = 0; // set file pointer to beginning of file
-            int currentfd = 0;
-            while (openFileTable[currentfd] != NULL) {  // find the next empty spot in the open file table
-                currentfd++;
-            }
-            newEntry->inodeNumber = currentInode; // set inode number
-            openFileTable[currentfd] = newEntry; // set the entry
-            // update the time stamps
-            char *timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
-            getTimestamp(timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
-            // zero out the last accessed timestamp
-            memset(inodeData + INODE_ACC_TIME_STAMP_OFFSET, 0, TIMESTAMP_BUFFER_SIZE);
-            // set the last accessed timestamp
-            memcpy(inodeData + INODE_ACC_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
-            // write the inode back to disk
-            int writeSuccess = writeBlock(mountedDisk, currentInode, inodeData);
-            if (writeSuccess < 0) {
-                printf("LIBTINYFS-openFile: Issue with inode block write when opening file\n");
-                return EOPEN; // error
-            }
-            return currentfd; // return file descriptor
+            // get next inode 
+            memcpy(&currentInode, inodeData + INODE_NEXT_INODE_OFFSET, sizeof(int)); 
+            // clear inodeData for the next iteration
+            memset(inodeData, 0, BLOCKSIZE);
         }
-        // clear fileName for the next iteration
-        memset(fileName, 0, MAX_FILE_NAME_SIZE*sizeof(char));
-        if (inodeData[INODE_NEXT_INODE_OFFSET] == 0) {
-            // no more inodes to check, need this pointer to our last inode
-            break;
-        }
-        // get next inode 
-        memcpy(&currentInode, inodeData + INODE_NEXT_INODE_OFFSET, sizeof(int)); 
-        // clear inodeData for the next iteration
-        memset(inodeData, 0, BLOCKSIZE);
+        free(inodeData);
     }
-    
     // if not in our list, allocate a new inode for the file
     // read in our free block LL head pointer from the super block
     int freeBlockHead;
@@ -347,7 +349,6 @@ fileDescriptor tfs_openFile(char *name){
     openFileTable[currentfd] = newEntry;
     // free everything we dont need anymore
     free(superData);
-    free(inodeData);
     free(freeBlockData);
     free(timeStampBuffer);
     return currentfd; // return file descriptor
@@ -421,7 +422,7 @@ int deallocateBlock(int blockNum) {
 }
 
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
-    if (mountedDisk == INT_NULL) {
+    if (mountedDisk == 0) {
         printf("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)\n");
         return EMOUNTFS; // error
     }
@@ -528,7 +529,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         // get the next free block 
         memcpy(&freeBlock, freeBuffer + FREE_NEXT_BLOCK_OFFSET, sizeof(int));
 
-        if (blocksNeeded == 0) { // null next block for tail of data extent
+        if (blocksNeeded == 0) { // null next block for tail of data extent, need to save the next block pointer
             int zero = 0;
             memcpy(freeBuffer + DATA_NEXT_BLOCK_OFFSET, &zero, sizeof(int));
         }
@@ -549,10 +550,13 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             break;
         }
 
+        // NICK - Where in this function are we chaining together free blocks in the
+        // case that our write needs more than one? Don't think that happens
+
     }
 
     // UPDATE SUPER NODE
-    memcpy(superData + FB_OFFSET, &freeBlock, sizeof(int));
+    memcpy(superData + FB_OFFSET, &freeBlock, sizeof(int)); // was IB offset
     success = writeBlock(mountedDisk, SUPER_BLOCK, superData);
     if (success < 0) {
         free(inodeData);

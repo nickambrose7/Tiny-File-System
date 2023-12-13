@@ -66,6 +66,7 @@ int main() {
     fileDescriptor fd2;
     fileDescriptor fd3;
     fileDescriptor fd4;
+    int status;
 
     if (tfs_mount("test.dsk") < 0) {
         perror("test.dsk not found, creating new disk");
@@ -78,17 +79,54 @@ int main() {
     printf("Finished inital mounting phase\n");
 
     fd1 = tfs_openFile("file1");
-    fd2 = tfs_openFile("file2");
-    fd3 = tfs_openFile("file3");
-    fd4 = tfs_openFile("file4");
-    printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+    // fd2 = tfs_openFile("file2");
+    // fd3 = tfs_openFile("file3");
+    // fd4 = tfs_openFile("file4");
+    // printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+    printf("file descriptor 1: %d\n", fd1);
     
     // write to file 1
     printf("\nWriting to file1\n");
     if (tfs_writeFile(fd1, "Hello World!", strlen("Hello World!")) < 0) {
         return -1;
     }
+    return 1;
     printf("Theoretically, wrote 'Hello World!'\n");
+
+        printf("Current Working Directory:\n");
+    if(tfs_readdir() < 0) {
+        return -1;
+    }
+
+    printf("Try opening a file that is already open:\n");
+
+    if (tfs_openFile("file1") < 0) {
+        printf("failed to open file1, this is what we want.\n");
+    }
+    else {
+        printf("opened file1 again, this shouldn't happen\n");
+        return 1;
+    }
+
+    printf("Try closing the file1\n");
+
+    if (tfs_closeFile(fd1) < 0) {
+        printf("failed to close file1, this shouldn't happen\n");
+        return 1;
+    }
+    printf("File1 closed, now should be able to open file1 again...\n");
+    fd1 = tfs_openFile("file1");
+    if (fd1 < 0) { // not properly being closed somehow
+        printf("failed to open file1 after closing, this shouldn't happen\n");
+        return 1;
+    }
+    status = remove("test.dsk");
+    if (status == 0) {
+        printf("File deleted successfully.\n");
+    } 
+    else {
+        printf("Error deleting the file\n");
+    }
 
     // read byte 0
     printf("\nRead first character of file1\n");
@@ -202,7 +240,7 @@ int main() {
     }
     printf("Done with demo\n");
     // clean up
-    int status = remove("test.dsk");
+    status = remove("test.dsk");
     if (status == 0) {
         printf("File deleted successfully.\n");
     } 
