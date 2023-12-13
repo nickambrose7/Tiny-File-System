@@ -165,6 +165,7 @@ int main() {
     if(tfs_readdir() < 0) {
         return -1;
     }
+    return 1;
 
     printf("get the timestamps:\n");
     tfs_readFileInfo(fd1);
