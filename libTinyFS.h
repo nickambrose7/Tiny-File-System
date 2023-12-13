@@ -7,7 +7,8 @@
 total. This is a default size. You must be able to support different
 possible values */
 #define DEFAULT_DISK_SIZE 10240
-
+/* use this name for a default emulated disk file name */
+#define DEFAULT_DISK_NAME "tinyFSDisk"
 
 
 /* GENERAL DEFINITIONS */
@@ -23,6 +24,7 @@ possible values */
 #define SUPER_BLOCK 0 // super block number
 #define FB_OFFSET 2 // offset to get free block LL head from super block
 #define IB_OFFSET 6 // offset to get inode LL head from super block
+#define SUPER_MAX_NUM_FILES_OFFSET 10 // offset to get max number of files from super block
 
 /* INODE BLOCK DEFINITIONS */
 #define INODE_BLOCK_TYPE 2
