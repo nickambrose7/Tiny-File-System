@@ -33,5 +33,11 @@ you might want to catch and report
 #define EDEALLOC -10
 // file info read error
 #define EFREAD -11
+// file write error
+#define EFWRITE -12
+// read byte error
+#define EBREAD -13
+// file seek error
+#define EFSEEK -14
 
 #endif
