@@ -562,6 +562,8 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         return EFWRITE; // error
     }
 
+    oftEntry->filePointer = BEGINNING_OF_FILE;
+
     // free memory
     free(inodeData);
     free(superData);
@@ -703,9 +705,10 @@ int tfs_seek(fileDescriptor FD, int offset){
         return EBADFD; // error
     }
 
-    oftEntry->filePointer = oftEntry->filePointer + offset;
+    int fp = oftEntry->filePointer + offset;
+    oftEntry->filePointer = fp;
 
-    return 1; // success
+    return fp; // success, returns new file pointer
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer){
@@ -749,7 +752,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     int dataBlock; // are there any data blocks that are currently used by the file
     memcpy(&dataBlock, inodeData + DATA_EXTENT_OFFSET, sizeof(int));
 
-    if (filePointer > currentFileSize) {
+    if (filePointer >= currentFileSize) {
         free(superData);
         free(inodeData);
         perror("LIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)");

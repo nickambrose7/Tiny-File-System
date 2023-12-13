@@ -82,6 +82,46 @@ int main() {
     fd3 = tfs_openFile("file3");
     fd4 = tfs_openFile("file4");
     printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
+    
+    // write to file 1
+    if (tfs_writeFile(fd1, "Hello World!", strlen("Hello World!")) < 0) {
+        return -1;
+    }
+
+    // read byte 0
+    char oneByte;
+    if (tfs_readByte(fd1, &oneByte) < 0) {
+        return -1;
+    }
+    printf("%c\n", oneByte);
+    
+    // seek f1 by 6
+    if(tfs_seek(fd1, 6) < 0) {
+        return -1;
+    }
+
+    // read byte to show file pointer is at 'W'
+    if (tfs_readByte(fd1, &oneByte) < 0) {
+        return -1;
+    }
+    printf("%c\n", oneByte);
+
+    // overwrite the file, pointer should be reset to 0
+    if(tfs_writeFile(fd1, "abc", strlen("abc")) < 0) {
+        return -1;
+    }
+
+    // read all the way through file
+    while(tfs_read(fd1, &oneByte) > 0) {
+        print(oneByte);
+    }
+    print("\n");
+
+    // rename file 1 to "mainfile.txt" -> error
+    if (tfs_rename(fd2, "mainfile.txt") < 0) {
+        // rename to main.c -> good
+        tfs_rename(fd2, "main.c");
+    }
 
 
     if (tfs_openFile("file1") != -1) {
@@ -97,6 +137,11 @@ int main() {
     if (fd1 < 0) {
         printf("failed to open file1 after closing, this shouldn't happen");
         return 1;
+    }
+
+    printf("Current Working Directory:\n");
+    if(tfs_readdir() < 0) {
+        return -1;
     }
 
     printf("get the timestamps:\n");
