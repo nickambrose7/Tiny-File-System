@@ -151,7 +151,7 @@ int tfs_mount(char *diskname){
         return EMOUNTFS; // error
     }
     // initialize open file table
-    for (int i = 0; i < maxNumberOfFiles; i++) {
+    for (i = 0; i < maxNumberOfFiles; i++) {
         openFileTable[i] = NULL;
     }
 
@@ -365,8 +365,53 @@ int tfs_closeFile(fileDescriptor FD) {
     return 1; // success
 }
 
+int deallocateBlock(int blockNum) {
+    /* This function takes a block number of an 
+    inode or data block and deallocates it, and 
+    adds it to the free block list */
+    // read in the block
+    char *data = (char *)malloc(BLOCKSIZE);
+    int success = readBlock(mountedDisk, blockNum, data);
+    if (success < 0) {
+        printf("LIBTINYFS-deallocateBlock: Invalid pointer to block");
+        return EDEALLOC; // error
+    }
+    // zero out the data buffer
+    memset(data, 0, BLOCKSIZE);
+    // prep the data buffer to be written as a free block
+    data[BLOCK_NUMBER_OFFSET] = FREE_BLOCK_TYPE; // block type -> free block
+    data[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
+    // read in the super block
+    char *superData = (char *)malloc(BLOCKSIZE);
+    success = readBlock(mountedDisk, SUPER_BLOCK, superData);
+    if (success < 0) {
+        printf("LIBTINYFS-deallocateBlock: Issue with super block read when deallocating block");
+        return EDEALLOC; // error
+    }
+    // get the free block LL head pointer
+    int freeBlockHead;
+    memcpy(&freeBlockHead, superData + FB_OFFSET, sizeof(int));
+    // set the next free block pointer to the current free block LL head pointer
+    memcpy(data + FREE_NEXT_BLOCK_OFFSET, &freeBlockHead, sizeof(int));
+    // update the super block to point to the new free block
+    memcpy(superData + FB_OFFSET, &blockNum, sizeof(int));
+    // write the super block back to disk
+    int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData);
+    if (writeSuccess < 0) {
+        printf("LIBTINYFS-deallocateBlock: Issue with super block write when deallocating block");
+        return EDEALLOC; // error
+    }
+    // write the free block back to disk
+    writeSuccess = writeBlock(mountedDisk, blockNum, data);
+    if (writeSuccess < 0) {
+        printf("LIBTINYFS-deallocateBlock: Issue with free block write when deallocating block");
+        return EDEALLOC; // error
+    }
+    return 1; // success
+}
+
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
-    if (mountedDisk == NULL) {
+    if (mountedDisk == INT_NULL) {
         printf("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)");
         return EMOUNTFS; // error
     }
@@ -435,7 +480,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
                 free(inodeData);
                 free(superData);
                 printf("LIBTINYFS: Error: Could not deallocate data block. (writeFile)");
-                return EDALLOC; // error
+                return EDEALLOC; // error
             }
 
             dataBlock = nextBlock;
@@ -486,7 +531,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         blocksNeeded--;
 
         // get the next free block 
-        memcpy(&freeBlock, freeBlock + FREE_NEXT_BLOCK_OFFSET, sizeof(freeBlock));
+        memcpy(&freeBlock, freeBuffer + FREE_NEXT_BLOCK_OFFSET, sizeof(freeBlock));
 
         // did we run out of free blocks before finishing?
         if (freeBlock == INT_NULL && blocksNeeded != 0) {
@@ -528,51 +573,6 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         return EFWRITE; // error
     }
 
-    return 1; // success
-}
-
-int deallocateBlock(int blockNum) {
-    /* This function takes a block number of an 
-    inode or data block and deallocates it, and 
-    adds it to the free block list */
-    // read in the block
-    char *data = (char *)malloc(BLOCKSIZE);
-    int success = readBlock(mountedDisk, blockNum, data);
-    if (success < 0) {
-        printf("LIBTINYFS-deallocateBlock: Invalid pointer to block");
-        return EDEALLOC; // error
-    }
-    // zero out the data buffer
-    memset(data, 0, BLOCKSIZE);
-    // prep the data buffer to be written as a free block
-    data[BLOCK_NUMBER_OFFSET] = FREE_BLOCK_TYPE; // block type -> free block
-    data[MAGIC_NUMBER_OFFSET] = MAGIC_NUMBER;
-    // read in the super block
-    char *superData = (char *)malloc(BLOCKSIZE);
-    success = readBlock(mountedDisk, SUPER_BLOCK, superData);
-    if (success < 0) {
-        printf("LIBTINYFS-deallocateBlock: Issue with super block read when deallocating block");
-        return EDEALLOC; // error
-    }
-    // get the free block LL head pointer
-    int freeBlockHead;
-    memcpy(&freeBlockHead, superData + FB_OFFSET, sizeof(int));
-    // set the next free block pointer to the current free block LL head pointer
-    memcpy(data + FREE_NEXT_BLOCK_OFFSET, &freeBlockHead, sizeof(int));
-    // update the super block to point to the new free block
-    memcpy(superData + FB_OFFSET, &blockNum, sizeof(int));
-    // write the super block back to disk
-    int writeSuccess = writeBlock(mountedDisk, SUPER_BLOCK, superData);
-    if (writeSuccess < 0) {
-        printf("LIBTINYFS-deallocateBlock: Issue with super block write when deallocating block");
-        return EDEALLOC; // error
-    }
-    // write the free block back to disk
-    writeSuccess = writeBlock(mountedDisk, blockNum, data);
-    if (writeSuccess < 0) {
-        printf("LIBTINYFS-deallocateBlock: Issue with free block write when deallocating block");
-        return EDEALLOC; // error
-    }
     return 1; // success
 }
 
@@ -691,7 +691,7 @@ int tfs_deleteFile(fileDescriptor FD) {
 }
 
 int tfs_seek(fileDescriptor FD, int offset){
-    if (mountedDisk == NULL) {
+    if (mountedDisk == INT_NULL) {
         perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (seek)");
         return EMOUNTFS; // error
     }
@@ -709,7 +709,7 @@ int tfs_seek(fileDescriptor FD, int offset){
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer){
-    if (mountedDisk == NULL) {
+    if (mountedDisk == INT_NULL) {
         perror("LIBTINYFS: Error: No disk mounted. Cannot find file. (readByte)");
         return EMOUNTFS; // error
     }
@@ -753,7 +753,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
         free(superData);
         free(inodeData);
         perror("LIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)");
-        return EBDREAD; // error
+        return EBREAD; // error
     }
 
     int blockNumber = filePointer / USEABLE_DATA_SIZE; // which block to seek to
