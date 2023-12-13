@@ -759,7 +759,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
 
     if (filePointer > currentFileSize) {
         free(superData);
-        free(inodeData)
+        free(inodeData);
         perror("LIBTINYFS: Error: File pointer out of bounds, EOF. (readByte)");
         return -1; // error
     }
@@ -773,7 +773,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
         if (success < 0) {
             free(superData);
             free(inodeData);
-            free(blockData)
+            free(blockData);
             perror("LIBTINYFS: Error: Issue with data read. (readByte)");
             return -1; // error
         }
@@ -794,7 +794,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     memcpy(inodeData + INODE_ACC_TIME_STAMP_OFFSET, timeStampBuffer, TIMESTAMP_BUFFER_SIZE);
 
     // write the updated inode block
-    success = writeBlock(diskNumber, inodeBlock, inodeData);
+    success = writeBlock(mountedDisk, fileInode, inodeData);
     if (success < 0) {
         free(inodeData);
         free(superData);
