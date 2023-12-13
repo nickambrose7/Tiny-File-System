@@ -1,5 +1,5 @@
 #include "libTinyFS.h"
-#include "libDisk.c"
+#include "libDisk.h"
 #include "tinyFS_errno.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -900,6 +900,9 @@ int tfs_rename(fileDescriptor FD, char* newName) {
         perror("LIBTINYFS: Error: Issue with inode block read. (rename)");
         return EFREAD; // error
     }
+
+    // zero out the current file name
+    memset(inodeData + INODE_FILE_NAME_OFFSET, 0, MAX_FILE_NAME_SIZE*sizeof(char));
 
     // MODIFY INODE BLOCK DATA
     // change name
