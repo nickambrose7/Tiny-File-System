@@ -455,10 +455,10 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     }
     
     int currentFileSize; // get file size, used for computation
-    memcpy(&currentFileSize, inodeData + FILE_SIZE_OFFSET, sizeof(int));
+    memcpy(&currentFileSize, inodeData + INODE_FILE_SIZE_OFFSET, sizeof(int));
     
     int dataBlock; // are there any data blocks that are currently used by the file
-    memcpy(&dataBlock, inodeData + DATA_EXTENT_OFFSET, sizeof(int));
+    memcpy(&dataBlock, inodeData + INODE_DATA_BLOCK_OFFSET, sizeof(int));
 
     // IMPLEMENTATION : Overwrite current data, write until cannot write anymore, then error
     int blocksNeeded = size / USEABLE_DATA_SIZE + (size % USEABLE_DATA_SIZE > 0 ? 1 : 0); // number of blocks needed
@@ -482,7 +482,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             
             // get the next data block before deallocating
             int nextBlock;
-            memcpy(&nextBlock, dataBuffer + DATA_NEXT_BLOCK_OFFSET, sizeof(nextBlock));
+            memcpy(&nextBlock, dataBuffer + DATA_NEXT_BLOCK_OFFSET, sizeof(int));
 
             // deallocate the block
             success = deallocateBlock(dataBlock);
@@ -525,6 +525,8 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         remainingBytes = remainingBytes - writeBufferSize;
         // decrement blocks needed after writing
         blocksNeeded--;
+        // get the next free block 
+        memcpy(&freeBlock, freeBuffer + FREE_NEXT_BLOCK_OFFSET, sizeof(int));
 
         if (blocksNeeded == 0) { // null next block for tail of data extent
             int zero = 0;
@@ -542,18 +544,15 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             return EFWRITE; // error
         }
 
-        // get the next free block 
-        memcpy(&freeBlock, freeBuffer + FREE_NEXT_BLOCK_OFFSET, sizeof(freeBlock));
-
         // did we run out of free blocks before finishing?
-        if (freeBlock == INT_NULL && blocksNeeded != 0) {
+        if (freeBlock == 0 && blocksNeeded != 0) {
             break;
         }
 
     }
 
     // UPDATE SUPER NODE
-    memcpy(superData + IB_OFFSET, &freeBlock, sizeof(int));
+    memcpy(superData + FB_OFFSET, &freeBlock, sizeof(int));
     success = writeBlock(mountedDisk, SUPER_BLOCK, superData);
     if (success < 0) {
         free(inodeData);
@@ -566,10 +565,10 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     // UPDATE INODE BLOCK
     // update file size
     int finalSize = size - remainingBytes;
-    memcpy(inodeData + INODE_FILE_SIZE_OFFSET, &finalSize, sizeof(finalSize));
+    memcpy(inodeData + INODE_FILE_SIZE_OFFSET, &finalSize, sizeof(int));
 
     // change head of data extent
-    memcpy(inodeData + INODE_DATA_BLOCK_OFFSET, &dataExtentHead, sizeof(dataExtentHead));
+    memcpy(inodeData + INODE_DATA_BLOCK_OFFSET, &dataExtentHead, sizeof(int));
 
     // get current time to modify timestamp
     char * timeStampBuffer = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
@@ -760,10 +759,10 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     }
     
     int currentFileSize; // get file size, used for computation
-    memcpy(&currentFileSize, inodeData + FILE_SIZE_OFFSET, sizeof(int));
+    memcpy(&currentFileSize, inodeData + INODE_FILE_SIZE_OFFSET, sizeof(int));
     
     int dataBlock; // are there any data blocks that are currently used by the file
-    memcpy(&dataBlock, inodeData + DATA_EXTENT_OFFSET, sizeof(int));
+    memcpy(&dataBlock, inodeData + INODE_DATA_BLOCK_OFFSET, sizeof(int));
 
     if (filePointer >= currentFileSize) {
         free(inodeData);

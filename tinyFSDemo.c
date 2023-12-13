@@ -145,27 +145,25 @@ int main() {
         printf("\nYes, that's not good\n");
     }
 
+    if (tfs_openFile("file1") < 0) {
+        printf("should fail to open file1, why didn't it?\n");
+    }
 
-    // if (tfs_openFile("file1") < 0) {
-    //     printf("should fail to open file1, why didn't it?\n");
-    // }
-
-    // if (tfs_closeFile(fd1) < 0) {
-    //     printf("failed to close file1, this shouldn't happen\n");
-    //     return 1;
-    // }
-    // printf("Should be able to open file1 again...\n");
-    // fd1 = tfs_openFile("file1");
-    // if (fd1 < 0) { // not properly being closed somehow
-    //     printf("failed to open file1 after closing, this shouldn't happen\n");
-    //     return 1;
-    // }
+    if (tfs_closeFile(fd1) < 0) {
+        printf("failed to close file1, this shouldn't happen\n");
+        return 1;
+    }
+    printf("Should be able to open file1 again...\n");
+    fd1 = tfs_openFile("file1");
+    if (fd1 < 0) {
+        printf("failed to open file1 after closing, this shouldn't happen\n");
+        return 1;
+    }
 
     printf("Current Working Directory:\n");
     if(tfs_readdir() < 0) {
         return -1;
     }
-    return 1;
 
     printf("get the timestamps:\n");
     tfs_readFileInfo(fd1);

@@ -50,9 +50,6 @@ possible values */
 
 #define MAX_FILE_NAME_SIZE 9 // include the null terminator
 
-#define NEXT_INODE_OFFSET 2
-#define FILE_SIZE_OFFSET 6
-#define DATA_EXTENT_OFFSET 10
 #define INT_NULL 0
 #define BEGINNING_OF_FILE 0
 
