@@ -422,7 +422,7 @@ int deallocateBlock(int blockNum) {
 }
 
 int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
-    if (mountedDisk == INT_NULL) {
+    if (mountedDisk == 0) {
         printf("LIBTINYFS: Error: No disk mounted. Cannot find file. (writeFile)\n");
         return EMOUNTFS; // error
     }
@@ -527,7 +527,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         // decrement blocks needed after writing
         blocksNeeded--;
 
-        if (blocksNeeded == 0) { // null next block for tail of data extent
+        if (blocksNeeded == 0) { // null next block for tail of data extent, need to save the next block pointer
             int zero = 0;
             memcpy(freeBuffer + DATA_NEXT_BLOCK_OFFSET, &zero, sizeof(int));
         }
@@ -551,10 +551,13 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             break;
         }
 
+        // NICK - Where in this function are we chaining together free blocks in the
+        // case that our write needs more than one? Don't think that happens
+
     }
 
     // UPDATE SUPER NODE
-    memcpy(superData + IB_OFFSET, &freeBlock, sizeof(int));
+    memcpy(superData + FB_OFFSET, &freeBlock, sizeof(int)); // was IB offset
     success = writeBlock(mountedDisk, SUPER_BLOCK, superData);
     if (success < 0) {
         free(inodeData);
