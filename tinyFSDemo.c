@@ -79,54 +79,17 @@ int main() {
     printf("Finished inital mounting phase\n");
 
     fd1 = tfs_openFile("file1");
-    // fd2 = tfs_openFile("file2");
-    // fd3 = tfs_openFile("file3");
-    // fd4 = tfs_openFile("file4");
-    // printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
-    printf("file descriptor 1: %d\n", fd1);
+    fd2 = tfs_openFile("file2");
+    fd3 = tfs_openFile("file3");
+    fd4 = tfs_openFile("file4");
+    printf("file descriptors: %d, %d, %d, %d\n", fd1, fd2, fd3, fd4);
     
     // write to file 1
     printf("\nWriting to file1\n");
     if (tfs_writeFile(fd1, "Hello World!", strlen("Hello World!")) < 0) {
         return -1;
     }
-    return 1;
     printf("Theoretically, wrote 'Hello World!'\n");
-
-        printf("Current Working Directory:\n");
-    if(tfs_readdir() < 0) {
-        return -1;
-    }
-
-    printf("Try opening a file that is already open:\n");
-
-    if (tfs_openFile("file1") < 0) {
-        printf("failed to open file1, this is what we want.\n");
-    }
-    else {
-        printf("opened file1 again, this shouldn't happen\n");
-        return 1;
-    }
-
-    printf("Try closing the file1\n");
-
-    if (tfs_closeFile(fd1) < 0) {
-        printf("failed to close file1, this shouldn't happen\n");
-        return 1;
-    }
-    printf("File1 closed, now should be able to open file1 again...\n");
-    fd1 = tfs_openFile("file1");
-    if (fd1 < 0) { // not properly being closed somehow
-        printf("failed to open file1 after closing, this shouldn't happen\n");
-        return 1;
-    }
-    status = remove("test.dsk");
-    if (status == 0) {
-        printf("File deleted successfully.\n");
-    } 
-    else {
-        printf("Error deleting the file\n");
-    }
 
     // read byte 0
     printf("\nRead first character of file1\n");
@@ -137,7 +100,7 @@ int main() {
     }
     printf("%c\n", *oneByte);
     printf("\nFile pointer of file1 is now at 1\n");
-    
+ 
     // seek f1 by 6
     printf("\nSeek file pointer by 6\n");
     if(tfs_seek(fd1, 6) < 0) {
@@ -166,6 +129,7 @@ int main() {
     }
     printf("\n");
 
+    // renaming
     printf("\nCan we rename file2 to mainfile.txt?\n");
     // rename file 1 to "mainfile.txt" -> error
     if (tfs_rename(fd2, "mainfile.txt") < 0) {
@@ -173,7 +137,7 @@ int main() {
         printf("Can we rename file 2 to main.c?\n");
         // rename to main.c -> good
         if (tfs_rename(fd2, "main.c") > 0) {
-            printf("Yes! Renamed.\n");
+            printf("Yes! Renamed.\n\n");
         }
         else {
             printf("No, renaming failed.\n");
@@ -183,27 +147,32 @@ int main() {
         printf("\nYes, that's not good\n");
     }
 
+    // opening and closing file
     if (tfs_openFile("file1") < 0) {
-        printf("should fail to open file1, why didn't it?\n");
+        printf("Fails to open file1, because it is already open\n");
     }
 
     if (tfs_closeFile(fd1) < 0) {
         printf("failed to close file1, this shouldn't happen\n");
         return 1;
     }
+    printf("closed file 1\n");
     printf("Should be able to open file1 again...\n");
     fd1 = tfs_openFile("file1");
     if (fd1 < 0) {
         printf("failed to open file1 after closing, this shouldn't happen\n");
         return 1;
     }
+    printf("Opened file1...\n");
 
-    printf("Current Working Directory:\n");
+    // readdir
+    printf("\nCurrent Working Directory...\n");
     if(tfs_readdir() < 0) {
         return -1;
     }
 
-    printf("get the timestamps:\n");
+    // get file info
+    printf("Get all file info...\n");
     tfs_readFileInfo(fd1);
     tfs_readFileInfo(fd2);
     tfs_readFileInfo(fd3);
@@ -214,6 +183,7 @@ int main() {
         printf("failed to delete file1\n");
         return 1;
     }
+
     // should now be able to open file1 again, the fd should be reused
     fd1 = tfs_openFile("file1");
     if (fd1 < 0) {

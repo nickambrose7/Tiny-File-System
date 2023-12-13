@@ -524,10 +524,13 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         memcpy(freeBuffer + DATA_BLOCK_DATA_OFFSET, buffer + bufferPointer, writeBufferSize); // copy the spliced buffer into the block data
         bufferPointer = bufferPointer + writeBufferSize;
         remainingBytes = remainingBytes - writeBufferSize;
-        // decrement blocks needed after writing
-        blocksNeeded--;
+
         // get the next free block 
+        int dataBlock = freeBlock;
         memcpy(&freeBlock, freeBuffer + FREE_NEXT_BLOCK_OFFSET, sizeof(int));
+
+        // decrement blocks needed
+        blocksNeeded--;
 
         if (blocksNeeded == 0) { // null next block for tail of data extent, need to save the next block pointer
             int zero = 0;
@@ -535,7 +538,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         }
 
         // write to block
-        success = writeBlock(mountedDisk, freeBlock, freeBuffer);
+        success = writeBlock(mountedDisk, dataBlock, freeBuffer);
 
         if (success < 0) {
             free(inodeData);
@@ -550,9 +553,6 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
             break;
         }
 
-        // NICK - Where in this function are we chaining together free blocks in the
-        // case that our write needs more than one? Don't think that happens
-
     }
 
     // UPDATE SUPER NODE
@@ -562,7 +562,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         free(inodeData);
         free(superData);
         free(freeBuffer);
-        perror("LIBTINYFS: Error: Super block could not be updated. (writeFile)\n");
+        printf("LIBTINYFS: Error: Super block could not be updated. (writeFile)\n");
         return EFWRITE; // error
     }
 
@@ -589,7 +589,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
         return EFWRITE; // error
     }
 
-    oftEntry->filePointer = BEGINNING_OF_FILE;
+    oftEntry->filePointer = 0;
 
     // free memory
     free(inodeData);
@@ -778,7 +778,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
     int byteNumber = filePointer % USEABLE_DATA_SIZE; // which byte to seek to in blockNumber
 
     // printf("Block Num: %d, Byte Num:%d\n", blockNumber, byteNumber);
-
+    
     char *blockData = (char *)malloc(BLOCKSIZE*sizeof(char));
     success = readBlock(mountedDisk, dataBlock, blockData);
     if (success < 0) {
@@ -800,6 +800,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
 
         blockNumber--; // decrement block number
     }
+
     memcpy(buffer, blockData + DATA_BLOCK_DATA_OFFSET + byteNumber, sizeof(char)); // get byte of data at byteNumbe in blockNumber 
 
     tfs_seek(FD, 1); // increment pointer
@@ -839,15 +840,22 @@ int tfs_readFileInfo(fileDescriptor FD) {
         return EFREAD; // error
     }
     // get the three time stamps and display them
+    char *fileName = (char *)malloc(MAX_FILE_NAME_SIZE);
+    int fileSize;
     char *created = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
     char *modified = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
     char *accessed = (char *)malloc(TIMESTAMP_BUFFER_SIZE);
+    memcpy(fileName, inodeData + INODE_FILE_NAME_OFFSET, MAX_FILE_NAME_SIZE);
+    memcpy(&fileSize, inodeData + INODE_FILE_SIZE_OFFSET, sizeof(int));
     memcpy(created, inodeData + INODE_CR8_TIME_STAMP_OFFSET, TIMESTAMP_BUFFER_SIZE);
     memcpy(modified, inodeData + INODE_MOD_TIME_STAMP_OFFSET, TIMESTAMP_BUFFER_SIZE);
     memcpy(accessed, inodeData + INODE_ACC_TIME_STAMP_OFFSET, TIMESTAMP_BUFFER_SIZE);
+    printf("\n%s Information:", fileName);
+    printf("\nFile Size: %d\n", fileSize);
     printf("Created: %s\n", created);
     printf("Modified: %s\n", modified);
-    printf("Accessed: %s\n", accessed);
+    printf("Accessed: %s\n\n", accessed);
+    free(fileName);
     free(created);
     free(modified);
     free(accessed);
@@ -873,8 +881,7 @@ int tfs_readdir() {
     // get inode head
     int inodeHead;
     memcpy(&inodeHead, superData + IB_OFFSET, sizeof(int));
-    printf("%d\n", inodeHead);
-    printf("FILE SYSTEM:\nroot:\n");
+    printf("\nFILE SYSTEM:\nroot directory:\n");
     char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
     while (inodeHead != 0) { // make this a recursive function for hierarchical
         success = readBlock(mountedDisk, inodeHead, inodeData);
@@ -892,6 +899,7 @@ int tfs_readdir() {
 
         memcpy(&inodeHead, inodeData + INODE_NEXT_INODE_OFFSET, sizeof(int));
     }
+    printf("\n");
 
     return 1; // success
 }
