@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <unistd.h>
 
 void printHexDump(const char *filename) {
     /* be carful to wait before calling this function 
@@ -86,6 +87,10 @@ int main() {
     if (tfs_writeFile(fd1, "Hello World!", strlen("Hello World!")) < 0) {
         return -1;
     }
+    return 1;
+
+    // sleep(1);
+    // printHexDump("test.dsk");
 
     // read byte 0
     char oneByte;
@@ -111,10 +116,10 @@ int main() {
     }
 
     // read all the way through file
-    while(tfs_read(fd1, &oneByte) > 0) {
-        print(oneByte);
+    while(tfs_readByte(fd1, &oneByte) > 0) {
+        printf("%c", oneByte);
     }
-    print("\n");
+    printf("\n");
 
     // rename file 1 to "mainfile.txt" -> error
     if (tfs_rename(fd2, "mainfile.txt") < 0) {
