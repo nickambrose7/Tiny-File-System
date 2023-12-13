@@ -870,10 +870,10 @@ int tfs_readdir() {
     // get inode head
     int inodeHead;
     memcpy(&inodeHead, superData + IB_OFFSET, sizeof(int));
-
+    printf("%d\n", inodeHead);
     printf("FILE SYSTEM:\nroot:\n");
     char *inodeData = (char *)malloc(BLOCKSIZE*sizeof(char));
-    while (inodeHead != INT_NULL) { // make this a recursive function for hierarchical
+    while (inodeHead != 0) { // make this a recursive function for hierarchical
         success = readBlock(mountedDisk, inodeHead, inodeData);
         if (success < 0) {
             free(superData);
