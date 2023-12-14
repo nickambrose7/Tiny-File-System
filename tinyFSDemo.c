@@ -62,6 +62,11 @@ void printHexDump(const char *filename) {
 
 // test mk_tfs:
 int main() {
+
+    // preamble
+    char *preamble = (char *)malloc(sizeof(char)*327);
+    memcpy(preamble, "We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America.", 327);
+
     fileDescriptor fd1;
     fileDescriptor fd2;
     fileDescriptor fd3;
@@ -128,6 +133,40 @@ int main() {
         printf("%c", *oneByte);
     }
     printf("\n");
+
+    if (tfs_writeFile(fd4, preamble, 327) < 0) {
+        return -1;
+    }
+    printf("Theoretically, wrote preamble of the constitution.\n");
+
+    int it = 20;
+    while(it != 0) {
+        tfs_readByte(fd4, oneByte);
+        printf("%c", *oneByte);
+        it--;
+    }
+    printf("\n");
+
+    printf("\nSeek file pointer to second block\n");
+    if(tfs_seek(fd4, 250) < 0) {
+        return -1;
+    }
+    tfs_readByte(fd4, oneByte);
+    printf("%c\n", *oneByte);
+
+    printf("\nWriting to file1 again\n");
+    // overwrite the file, pointer should be reset to 0
+    if(tfs_writeFile(fd4, "abc", strlen("abc")) < 0) {
+        return -1;
+    }
+    printf("Theoretically, wrote 'abc' to file4\n");
+    printf("\nSeek file pointer past new write length\n");
+    if(tfs_seek(fd4, 5) < 0) {
+        return -1;
+    }
+    if(tfs_readByte(fd4, oneByte) < 0) {
+        printf("Data overwritten correctly\n");
+    }
 
     // renaming
     printf("\nCan we rename file2 to mainfile.txt?\n");

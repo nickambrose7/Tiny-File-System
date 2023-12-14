@@ -470,7 +470,8 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
     // if new blocks are needed, get pointer on super block on disk to get next free block
     if (currentFileSize != 0){ // free all data blocks being used right now
         // for each data extent block
-        for (int i=0; i<currentFileSize/USEABLE_DATA_SIZE + (size % USEABLE_DATA_SIZE > 0 ? 1 : 0); i++) {
+        int blocksToDeallocate = currentFileSize/USEABLE_DATA_SIZE + (size % USEABLE_DATA_SIZE > 0 ? 1 : 0);
+        for (int i=0; i<blocksToDeallocate; i++) {
             char *dataBuffer = (char *)malloc(BLOCKSIZE*sizeof(char)); // the block data of the file's current data extent block
             success = readBlock(mountedDisk, dataBlock, dataBuffer);
 
@@ -520,7 +521,7 @@ int tfs_writeFile(fileDescriptor FD,char *buffer, int size){
 
         // edit block buffer
         freeBuffer[BLOCK_NUMBER_OFFSET] = DATA_BLOCK_TYPE; // change type to a data extent block
-        int writeBufferSize = (size >= USEABLE_DATA_SIZE ? USEABLE_DATA_SIZE : size)*sizeof(char);
+        int writeBufferSize = (remainingBytes >= USEABLE_DATA_SIZE ? USEABLE_DATA_SIZE : remainingBytes)*sizeof(char);
         memcpy(freeBuffer + DATA_BLOCK_DATA_OFFSET, buffer + bufferPointer, writeBufferSize); // copy the spliced buffer into the block data
         bufferPointer = bufferPointer + writeBufferSize;
         remainingBytes = remainingBytes - writeBufferSize;
@@ -788,6 +789,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
         return EFREAD; // error
     }
     while (blockNumber != 0) {
+        memcpy(&dataBlock, blockData + DATA_NEXT_BLOCK_OFFSET, sizeof(int)); // get the next data block
         success = readBlock(mountedDisk, dataBlock, blockData);
         if (success < 0) {
             free(inodeData);
@@ -795,8 +797,6 @@ int tfs_readByte(fileDescriptor FD, char *buffer){
             printf("LIBTINYFS: Error: Issue with data read. (readByte)\n");
             return EFREAD; // error
         }
-
-        memcpy(&dataBlock, blockData + DATA_NEXT_BLOCK_OFFSET, sizeof(int)); // get the next data block
 
         blockNumber--; // decrement block number
     }
