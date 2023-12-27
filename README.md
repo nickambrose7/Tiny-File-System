@@ -1,4 +1,4 @@
-# Project-4-Tiny-Filesystem
+# Tiny Filesystem
 
 # Authors:
 Nicholas Ambrose, Ethan Wagner
